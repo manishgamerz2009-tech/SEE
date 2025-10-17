@@ -3,153 +3,288 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>**Mini Battle: 1-4 Player Offline Games** 🎮</title>
+    <title>Mini Battle: 1-4 Player Offline Games 🎮</title>
     <link href="https://fonts.googleapis.com/css2?family=Fredoka+One&display=swap" rel="stylesheet">
 
     <style>
-        /* **CSS START** (Omitted for brevity) */
+        /* CSS START */
+        body, html {
+            margin: 0;
+            padding: 0;
+            font-family: 'Fredoka One', cursive; 
+            background-color: #f7f7f7;
+            color: #333;
+            overflow: hidden; 
+            user-select: none; 
+            touch-action: manipulation; 
+            padding-bottom: 50px; /* Space for the bottom banner */
+        }
+        #game-container {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            width: 100vw;
+            height: 100vh;
+            box-sizing: border-box;
+            position: relative; 
+        }
         
+        /* ADMOB STYLES */
         #banner-ad-container {
-            position: **fixed**;
-            bottom: **0**;
-            /* ... (rest of banner CSS) ... */
-            z-index: **1000**; 
-            display: **none**; 
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            height: 50px;
+            background-color: #333;
+            color: #fff;
+            text-align: center;
+            line-height: 50px;
+            font-size: 0.9em;
+            box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.2);
+            z-index: 1000;
+            display: none; 
         }
-
         #ad-overlay {
-            position: **fixed**;
-            /* ... (rest of overlay CSS) ... */
-            z-index: **2000**;
-            display: **none**;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.9);
+            color: white;
+            z-index: 2000;
+            display: none;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+        #ad-overlay.interstitial { font-size: 2em; }
+        #ad-overlay.app-open { font-size: 1.5em; }
+        #ad-close-btn {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: #ff6347;
+            color: white;
+            border: 2px solid white;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            font-size: 1.5em;
+            cursor: pointer;
+            box-shadow: 0 4px #cc4e37;
+            /* Ensure the close button is visible on overlay */
+            line-height: 35px; 
+            text-align: center;
         }
 
-        /* **CSS END** */
+        /* SCREEN & BUTTON STYLES (Simplified) */
+        .screen {
+            position: absolute;
+            width: 90%;
+            max-width: 600px;
+            padding: 20px;
+            background-color: #fff;
+            border-radius: 20px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+            text-align: center;
+            display: none;
+            box-sizing: border-box;
+            margin-bottom: 50px; 
+        }
+        .screen.active { display: block; }
+        h1 { color: #ff6347; font-size: 3em; margin-bottom: 5px;}
+        button {
+            padding: 15px 30px;
+            margin: 10px 0;
+            border: none;
+            border-radius: 10px;
+            background-color: #4682b4;
+            color: white;
+            font-family: 'Fredoka One', cursive;
+            font-size: 1.2em;
+            cursor: pointer;
+            box-shadow: 0 5px #3a6891;
+            transition: background-color 0.1s;
+        }
+        /* Player grid and game area styles would go here */
+
+        /* CSS END */
     </style>
 </head>
 <body>
 
     <div id="ad-overlay">
-        <button id="ad-close-btn" style="display:none;">**&times;**</button>
-        <p id="ad-content-text">**Loading Ad...** ⏳</p>
-        <p style="font-size: 0.5em; margin-top: 50px;">**(Simulated AdMob Full-Screen Ad)**</p>
+        <button id="ad-close-btn" style="display:none;">&times;</button>
+        <p id="ad-content-text">Loading Ad... ⏳</p>
+        <p style="font-size: 0.5em; margin-top: 50px;">(Simulated AdMob Full-Screen Ad)</p>
     </div>
 
     <div id="game-container">
         <div id="menu-screen" class="screen active">
-            <h1>**Mini Battle 💥**</h1>
-            </div>
+            <h1>Mini Battle 💥</h1>
+            <p>1-4 Player Offline Fun</p>
+            <button id="start-game-btn">Start Battle</button>
+            <div id="game-grid">
+                <div class="game-icon" data-game="tap">👆 Quick Tap</div>
+                </div>
         </div>
 
-    <div id="banner-ad-container">
-        **[AdMob Banner Ad Here: 320x50]** 🖼️
+        <div id="setup-screen" class="screen">
+            <h2>Players (1-4)</h2>
+            <button id="start-battle-btn">Start Mini-Game Battle</button>
+        </div>
+
+        <div id="game-screen" class="screen">
+            <h2>Round Title</h2>
+            <div id="mini-game-area"></div>
+        </div>
+
+        <div id="score-screen" class="screen">
+            <h2>🏆 Scoreboard 🏆</h2>
+            <button id="next-round-btn">Next Mini-Game</button>
+            <button id="back-to-menu-btn">Back to Menu</button>
+        </div>
     </div>
 
-    <audio id="bg-music" src="" loop></audio>
+    <div id="banner-ad-container">
+        [AdMob Banner Ad Here: 320x50] 🖼️
+    </div>
 
     <script>
-        // --- **JAVASCRIPT START** 🛠️ ---
+        // JAVASCRIPT START 🛠️
 
         // ====================================================================
-        // **!! PRODUCTION ID IMPLEMENTATION POINT !!** 💡
-        // **WHEN READY TO PUBLISH**, replace the values below with your **REAL** AdMob IDs. 🛑
-        // Format example: 'ca-app-pub-1234567890/1234567890'
+        // !! PRODUCTION ID IMPLEMENTATION POINT !! 💡
+        // WHEN READY TO PUBLISH, replace the values below with your REAL AdMob IDs. 🛑
         // ====================================================================
-        const **ADMOB_TEST_IDS** = {
-            **APP_OPEN**: '**ca-app-pub-3940256099942544/9257395921**', // **REPLACE WITH YOUR LIVE ca-app-pub-xxxxxxxxxx/xxxxx** 🚀
-            **BANNER**: '**ca-app-pub-3940256099942544/6300978111**',     // **REPLACE WITH YOUR LIVE ca-app-pub-xxxxxxxxxx/xxxxx** 🖼️
-            **INTERSTITIAL**: '**ca-app-pub-3940256099942544/1033173712**' // **REPLACE WITH YOUR LIVE ca-app-pub-xxxxxxxxxx/xxxxx** 🎬
+        const ADMOB_TEST_IDS = {
+            APP_OPEN: 'ca-app-pub-3940256099942544/9257395921',
+            BANNER: 'ca-app-pub-3940256099942544/6300978111',
+            INTERSTITIAL: 'ca-app-pub-3940256099942544/1033173712'
         };
 
-        // --- **Game State Variables** (Omitted for brevity) ---
-        let **isAppOpenAdShown** = false; 
+        // --- Game State Variables ---
+        let currentRound = 0;
+        let isAppOpenAdShown = false; 
+        const MAX_ROUNDS = 5;
 
-        // --- **AdMob Simulation Functions** ⚙️ ---
+        // --- DOM Elements ---
+        const screens = {
+            'menu': document.getElementById('menu-screen'),
+            'setup': document.getElementById('setup-screen'),
+            'game': document.getElementById('game-screen'),
+            'score': document.getElementById('score-screen')
+        };
+        const bannerAdContainer = document.getElementById('banner-ad-container');
+        const adOverlay = document.getElementById('ad-overlay');
+        const adContentText = document.getElementById('ad-content-text');
+        const adCloseBtn = document.getElementById('ad-close-btn');
 
-        /**
-         * **Simulates showing/hiding a banner ad.** 🖼️
-         */
-        function **showBannerAd**(shouldShow) {
-            const **AD_ID** = **ADMOB_TEST_IDS.BANNER**; 
+        // --- AdMob Simulation Functions ---
 
-            if (**shouldShow**) {
-                // **!! ADMOB BANNER AD IS HERE (SHOW)** // **REPLACE THIS LINE with AdMob SDK showBanner(AD_ID, ...) call!** 📱
-                **bannerAdContainer.style.display** = '**block**';
+        function showBannerAd(shouldShow) {
+            const AD_ID = ADMOB_TEST_IDS.BANNER; 
+            if (shouldShow) {
+                // !! ADMOB BANNER AD IS HERE (SHOW) !!
+                bannerAdContainer.style.display = 'block';
+                bannerAdContainer.textContent = `Banner Ad (TEST ID: ${AD_ID}) 🖼️`;
             } else {
-                // **!! ADMOB BANNER AD IS HERE (HIDE)**
-                // **REPLACE THIS LINE with AdMob SDK hideBanner() call!** 🚫
-                **bannerAdContainer.style.display** = '**none**';
+                // !! ADMOB BANNER AD IS HERE (HIDE) !!
+                bannerAdContainer.style.display = 'none';
             }
         }
 
-        /**
-         * **Simulates loading and showing an App Open Ad.** 🚪
-         */
-        function **loadAndShowAppOpenAd**(onAdClosed) {
-            const **AD_ID** = **ADMOB_TEST_IDS.APP_OPEN**; 
+        function loadAndShowAppOpenAd(onAdClosed) {
+            const AD_ID = ADMOB_TEST_IDS.APP_OPEN; 
+            if (isAppOpenAdShown) { onAdClosed(); return; }
 
-            // **!! ADMOB APP OPEN AD IS HERE (LOAD AND SHOW)** // **REPLACE SIMULATION WITH admob.loadAppOpenAd(AD_ID, onAdClosedCallback);** 🚀
+            // !! ADMOB APP OPEN AD IS HERE (LOAD AND SHOW) !!
+            adOverlay.classList.add('app-open');
+            adOverlay.style.display = 'flex';
             
-            **adOverlay.classList.add**('**app-open**');
-            **adOverlay.style.display** = '**flex**';
-            
-            // **Simulate AdMob loading time** ⏳
             setTimeout(() => {
-                **adContentText.textContent** = `**App Open Ad (TEST ID: ${AD_ID})**`;
-                **adCloseBtn.onclick** = () => {
-                    **adOverlay.style.display** = '**none**';
-                    **onAdClosed()**; 
+                adContentText.textContent = `App Open Ad (TEST ID: ${AD_ID})`;
+                adCloseBtn.style.display = 'block';
+                
+                adCloseBtn.onclick = () => {
+                    adOverlay.style.display = 'none';
+                    isAppOpenAdShown = true;
+                    onAdClosed(); 
                 };
             }, 1500); 
         }
 
-        /**
-         * **Simulates loading and showing an Interstitial Ad.** 🎬
-         */
-        function **loadAndShowInterstitial**(onAdClosed) {
-            const **AD_ID** = **ADMOB_TEST_IDS.INTERSTITIAL**; 
+        function loadAndShowInterstitial(onAdClosed) {
+            const AD_ID = ADMOB_TEST_IDS.INTERSTITIAL; 
             
-            // **!! ADMOB INTERSTITIAL AD IS HERE (LOAD AND SHOW)** // **REPLACE SIMULATION WITH admob.loadInterstitial(AD_ID, thenShowCallback);** 📲
+            // !! ADMOB INTERSTITIAL AD IS HERE (LOAD AND SHOW) !!
+            adOverlay.classList.add('interstitial');
+            adOverlay.style.display = 'flex';
             
-            **adOverlay.classList.add**('**interstitial**');
-            **adOverlay.style.display** = '**flex**';
-            
-            // **Simulate AdMob loading time** ⏳
             setTimeout(() => {
-                **adContentText.textContent** = `**Interstitial Ad (TEST ID: ${AD_ID})**`;
-                **adCloseBtn.onclick** = () => {
-                    **adOverlay.style.display** = '**none**';
-                    **onAdClosed()**; 
+                adContentText.textContent = `Interstitial Ad (TEST ID: ${AD_ID}) 🎬`;
+                adCloseBtn.style.display = 'block';
+                
+                adCloseBtn.onclick = () => {
+                    adOverlay.style.display = 'none';
+                    onAdClosed(); 
                 };
             }, 1000); 
         }
 
-        // --- **Game Flow** ➡️ ---
+        // --- Screen Management ---
 
-        function **startNextMiniGame**() {
-            // ... (check for final round)
+        function showScreen(screenName) {
+            Object.values(screens).forEach(screen => screen.classList.remove('active'));
+            screens[screenName].classList.add('active');
 
-            // **ADMOB BREAKPOINT: INTERSTITIAL** 🎬
-            if (**currentRound** > 0) {
-                **loadAndShowInterstitial**(() => { // **<-- INTERSTITIAL AD TRIGGERED HERE** 🎯
-                    **proceedToGameScreen()**();
+            // ADMOB BANNER TRIGGER: Show banner on menu and score screens
+            const showAd = (screenName === 'menu' || screenName === 'score');
+            showBannerAd(showAd);
+        }
+        
+        // --- Game Flow (Simplified for demonstration) ---
+        function startNextMiniGame() {
+            currentRound++; 
+            if (currentRound > MAX_ROUNDS) {
+                // showFinalScores(); // Simplified
+                showScreen('score');
+                return;
+            }
+
+            // ADMOB BREAKPOINT: INTERSTITIAL 🎬
+            if (currentRound > 1) { // Trigger from round 2 onwards
+                loadAndShowInterstitial(() => { 
+                    showScreen('game'); // Simplified: just show the game screen
                 });
             } else {
-                **proceedToGameScreen()**();
+                showScreen('game');
             }
         }
         
-        // --- **Initialisation** 🏁 ---
-
-        // **ADMOB BREAKPOINT: APP OPEN AD** 🚪
+        // --- Initialisation and Event Listeners ---
+        
+        // ADMOB BREAKPOINT: APP OPEN AD 🚪
         window.onload = () => {
-             **loadAndShowAppOpenAd**(() => { // **<-- APP OPEN AD TRIGGERED HERE** 💥
-                // ... (start game setup)
-                **showScreen**('**menu**');
+             loadAndShowAppOpenAd(() => { 
+                showScreen('menu'); // Start on the menu after the ad
              });
         }
+        
+        // Simplified event listeners
+        document.getElementById('start-game-btn').addEventListener('click', () => { showScreen('setup'); });
+        document.getElementById('start-battle-btn').addEventListener('click', () => { 
+            currentRound = 0; // Reset round counter
+            startNextMiniGame(); 
+        });
+        document.getElementById('next-round-btn').addEventListener('click', startNextMiniGame);
+        document.getElementById('back-to-menu-btn').addEventListener('click', () => { showScreen('menu'); });
 
-        // **JAVASCRIPT END**
+        // JAVASCRIPT END
     </script>
 </body>
 </html>
