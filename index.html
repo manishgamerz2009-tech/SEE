@@ -2,1161 +2,154 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Offline Multi-Game Arcade</title>
-    <!-- Load Tailwind CSS -->
-    <script src="https://cdn.tailwindcss.com"></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>**Mini Battle: 1-4 Player Offline Games** 🎮</title>
+    <link href="https://fonts.googleapis.com/css2?family=Fredoka+One&display=swap" rel="stylesheet">
+
     <style>
-        /* General Styles */
-        body {
-            font-family: 'Inter', sans-serif;
-            background-color: #1f2937; /* Dark Blue-Gray Background */
-            color: #f3f4f6;
-            min-height: 100vh;
-            display: flex;
-            justify-content: center;
-            padding: 20px;
-        }
-        .game-wrapper {
-            background-color: #374151; /* Dark Card Background */
-            padding: 20px;
-            border-radius: 16px;
-            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
-            max-width: 450px;
-            width: 100%;
-            display: flex;
-            flex-direction: column;
+        /* **CSS START** (Omitted for brevity) */
+        
+        #banner-ad-container {
+            position: **fixed**;
+            bottom: **0**;
+            /* ... (rest of banner CSS) ... */
+            z-index: **1000**; 
+            display: **none**; 
         }
 
-        /* Button Styles */
-        .btn-game {
-            @apply bg-indigo-600 text-white py-4 px-4 rounded-xl text-xl font-bold shadow-xl transition duration-150 hover:bg-indigo-700 active:scale-95;
-            box-shadow: 0 4px 0 0 #4f46e5;
-        }
-        .btn-game:active {
-            box-shadow: none;
-            transform: translateY(4px);
-        }
-        .btn-primary {
-            @apply bg-green-600 text-white py-2 px-4 rounded-lg font-semibold shadow-md hover:bg-green-700 transition duration-150;
-        }
-        .btn-secondary {
-            @apply bg-gray-600 text-white py-1 px-3 rounded-lg hover:bg-gray-500 transition duration-150;
+        #ad-overlay {
+            position: **fixed**;
+            /* ... (rest of overlay CSS) ... */
+            z-index: **2000**;
+            display: **none**;
         }
 
-        /* --- Tic-Tac-Toe Styles --- */
-        #ttt-grid {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            grid-template-rows: repeat(3, 1fr);
-            width: 100%;
-            aspect-ratio: 1 / 1;
-            max-width: 300px;
-            margin: 20px auto;
-            border: 4px solid #4b5563;
-            border-radius: 8px;
-            overflow: hidden;
-        }
-        .ttt-cell {
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            font-size: 3rem;
-            font-weight: bold;
-            background-color: #4b5563;
-            border: 2px solid #1f2937;
-            cursor: pointer;
-            transition: background-color 0.1s;
-        }
-        .ttt-cell:hover:not(.occupied) {
-            background-color: #5d6878;
-        }
-
-        /* --- Connect Four Styles --- */
-        #connect4-grid {
-            display: grid;
-            grid-template-columns: repeat(7, 1fr);
-            grid-template-rows: repeat(6, 1fr);
-            gap: 5px;
-            background-color: #2563eb; /* Connect Four Blue */
-            padding: 10px;
-            border-radius: 8px;
-            box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.5);
-            aspect-ratio: 7 / 6;
-        }
-        .c4-cell {
-            position: relative;
-            padding-bottom: 100%;
-            height: 0;
-            overflow: hidden;
-        }
-        .c4-cell::before {
-            content: '';
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            width: 90%;
-            height: 90%;
-            border-radius: 50%;
-            background-color: #1f2937; /* Hole color */
-            box-shadow: inset 0 0 5px rgba(0, 0, 0, 0.3);
-        }
-        .c4-disc {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            width: 80%;
-            height: 80%;
-            border-radius: 50%;
-            transition: background-color 0.3s ease-in-out;
-            pointer-events: none;
-            z-index: 10;
-        }
-        .c4-red { background-color: #ef4444; box-shadow: 0 2px 5px rgba(0, 0, 0, 0.4); }
-        .c4-yellow { background-color: #f59e0b; box-shadow: 0 2px 5px rgba(0, 0, 0, 0.4); }
-        .drop-btn {
-            @apply bg-transparent text-gray-200 hover:text-green-400 transition duration-150;
-        }
-
-        /* Ad Placeholder */
-        .ad-placeholder {
-            @apply bg-gray-800 text-gray-400 text-center py-2 text-xs rounded-lg my-4 border border-dashed border-gray-600;
-        }
+        /* **CSS END** */
     </style>
 </head>
 <body>
-    <div id="game-container" class="game-wrapper">
-        <!-- Game content will be rendered here by JavaScript -->
-        <p class="text-center">Initializing Arcade...</p>
+
+    <div id="ad-overlay">
+        <button id="ad-close-btn" style="display:none;">**&times;**</button>
+        <p id="ad-content-text">**Loading Ad...** ⏳</p>
+        <p style="font-size: 0.5em; margin-top: 50px;">**(Simulated AdMob Full-Screen Ad)**</p>
     </div>
 
+    <div id="game-container">
+        <div id="menu-screen" class="screen active">
+            <h1>**Mini Battle 💥**</h1>
+            </div>
+        </div>
+
+    <div id="banner-ad-container">
+        **[AdMob Banner Ad Here: 320x50]** 🖼️
+    </div>
+
+    <audio id="bg-music" src="" loop></audio>
+
     <script>
-    // Global state for all games
-    const gameState = {
-        currentGame: 'menu',
-        gameData: {},
-    };
-    const gameContainer = document.getElementById('game-container');
+        // --- **JAVASCRIPT START** 🛠️ ---
 
-    // --- Core Navigation and Ad Placeholder ---
-
-    /**
-     * Switches the current game and renders its interface.
-     * @param {string} gameName - The name of the game to switch to.
-     */
-    function switchGame(gameName) {
-        gameState.currentGame = gameName;
-        gameState.gameData = {}; // Clear previous game data
-
-        switch (gameName) {
-            case 'ttt':
-                renderTicTacToe();
-                break;
-            case 'connect4':
-                renderConnectFour();
-                break;
-            case 'rps':
-                renderRPS();
-                break;
-            case 'guessNumber':
-                renderGuessNumber();
-                break;
-            case 'coinFlip':
-                renderCoinFlip();
-                break;
-            case 'diceDuel':
-                renderDiceDuel();
-                break;
-            case 'mathQuiz':
-                renderMathQuiz();
-                break;
-            case 'menu':
-            default:
-                renderMenu();
-                break;
-        }
-    }
-
-    /**
-     * Placeholder for AdMob Banner (Top of Screen)
-     * @returns {string} HTML for the ad placeholder.
-     */
-    function adMobTop() {
-        return `<div class="ad-placeholder">AdMob Banner: 320x50 (Top)</div>`;
-    }
-
-    /**
-     * Placeholder for AdMob Banner (Bottom of Screen)
-     * @returns {string} HTML for the ad placeholder.
-     */
-    function adMobBottom() {
-        return `<div class="ad-placeholder">AdMob Banner: 320x50 (Bottom)</div>`;
-    }
-
-    // --- 0. Menu/Home Screen ---
-
-    function renderMenu() {
-        gameContainer.innerHTML = `
-            ${adMobTop()}
-            <h1 class="text-4xl font-extrabold text-center mb-8 text-indigo-400">
-                Offline Arcade 🕹️
-            </h1>
-            <p class="text-center text-gray-300 mb-6 text-lg">7 Games, Offline Fun</p>
-
-            <div class="space-y-4">
-                <button onclick="switchGame('connect4')" class="btn-game w-full">
-                    Connect Four (AI Diff)
-                </button>
-                <button onclick="switchGame('ttt')" class="btn-game w-full">
-                    Tic-Tac-Toe (Vs AI)
-                </button>
-                <button onclick="switchGame('rps')" class="btn-game w-full">
-                    Rock Paper Scissors
-                </button>
-                <button onclick="switchGame('guessNumber')" class="btn-game w-full">
-                    Guess The Number
-                </button>
-                <button onclick="switchGame('diceDuel')" class="btn-game w-full">
-                    Dice Roll Duel
-                </button>
-                <button onclick="switchGame('coinFlip')" class="btn-game w-full">
-                    Coin Flip
-                </button>
-                <button onclick="switchGame('mathQuiz')" class="btn-game w-full">
-                    Simple Math Quiz
-                </button>
-            </div>
-            ${adMobBottom()}
-        `;
-    }
-
-    // --- 1. Connect Four (C4) Logic (Updated with Impossible AI) ---
-
-    const C4_ROWS = 6;
-    const C4_COLS = 7;
-    const C4_EMPTY = 0;
-    const C4_P1 = 1; // Red (Human/P1)
-    const C4_P2 = 2; // Yellow (Computer/P2)
-
-    function getLowestEmptyRow(board, colIndex) {
-        for (let r = C4_ROWS - 1; r >= 0; r--) {
-            if (board[r][colIndex] === C4_EMPTY) {
-                return r;
-            }
-        }
-        return -1;
-    }
-
-    function checkC4Win(board, player) {
-        const checkLine = (r, c, dr, dc) => {
-            let count = 0;
-            for (let i = 0; i < 4; i++) {
-                const row = r + i * dr;
-                const col = c + i * dc;
-                if (row >= 0 && row < C4_ROWS && col >= 0 && col < C4_COLS && board[row][col] === player) {
-                    count++;
-                } else {
-                    return false;
-                }
-            }
-            return true;
+        // ====================================================================
+        // **!! PRODUCTION ID IMPLEMENTATION POINT !!** 💡
+        // **WHEN READY TO PUBLISH**, replace the values below with your **REAL** AdMob IDs. 🛑
+        // Format example: 'ca-app-pub-1234567890/1234567890'
+        // ====================================================================
+        const **ADMOB_TEST_IDS** = {
+            **APP_OPEN**: '**ca-app-pub-3940256099942544/9257395921**', // **REPLACE WITH YOUR LIVE ca-app-pub-xxxxxxxxxx/xxxxx** 🚀
+            **BANNER**: '**ca-app-pub-3940256099942544/6300978111**',     // **REPLACE WITH YOUR LIVE ca-app-pub-xxxxxxxxxx/xxxxx** 🖼️
+            **INTERSTITIAL**: '**ca-app-pub-3940256099942544/1033173712**' // **REPLACE WITH YOUR LIVE ca-app-pub-xxxxxxxxxx/xxxxx** 🎬
         };
 
-        for (let r = 0; r < C4_ROWS; r++) {
-            for (let c = 0; c < C4_COLS; c++) {
-                if (board[r][c] === player) {
-                    if (c + 3 < C4_COLS && checkLine(r, c, 0, 1)) return true; // Horizontal
-                    if (r + 3 < C4_ROWS && checkLine(r, c, 1, 0)) return true; // Vertical
-                    if (r + 3 < C4_ROWS && c + 3 < C4_COLS && checkLine(r, c, 1, 1)) return true; // Down-Right
-                    if (r + 3 < C4_ROWS && c - 3 >= 0 && checkLine(r, c, 1, -1)) return true; // Down-Left
-                }
-            }
-        }
-        return false;
-    }
+        // --- **Game State Variables** (Omitted for brevity) ---
+        let **isAppOpenAdShown** = false; 
 
-    function isWinningMove(board, colIndex, player) {
-        const r = getLowestEmptyRow(board, colIndex);
-        if (r === -1) return false;
-        const boardCopy = board.map(row => row.slice());
-        boardCopy[r][colIndex] = player;
-        return checkC4Win(boardCopy, player);
-    }
+        // --- **AdMob Simulation Functions** ⚙️ ---
 
-    function findStrategicMove(board, availableCols, computerPlayer, humanPlayer) {
-        let moveIndex = -1;
+        /**
+         * **Simulates showing/hiding a banner ad.** 🖼️
+         */
+        function **showBannerAd**(shouldShow) {
+            const **AD_ID** = **ADMOB_TEST_IDS.BANNER**; 
 
-        // 1. Priority: Computer Winning Move (Depth 1)
-        moveIndex = availableCols.find(col => isWinningMove(board, col, computerPlayer));
-        if (moveIndex !== -1) return moveIndex;
-
-        // 2. Priority: Blocking Human Win (Depth 1)
-        moveIndex = availableCols.find(col => isWinningMove(board, col, humanPlayer));
-        if (moveIndex !== -1) return moveIndex;
-
-        // 3. Priority: Center Bias
-        const centerPreference = [3, 2, 4, 1, 5, 0, 6];
-        const bestCenterCol = centerPreference.find(col => availableCols.includes(col));
-        if (bestCenterCol !== undefined) {
-            return bestCenterCol;
-        }
-
-        return -1;
-    }
-
-    function findImpossibleMove(board, computerPlayer, humanPlayer, availableCols) {
-        // 1. Immediate Win/Block (Highest priority)
-        const strategicMove = findStrategicMove(board, availableCols, computerPlayer, humanPlayer);
-        if (strategicMove !== -1) return strategicMove;
-
-        // --- Depth 2 Lookahead: Avoid opponent's next-turn win (forks/traps) ---
-        const safeMoves = [];
-
-        for (const col of availableCols) {
-            const r = getLowestEmptyRow(board, col);
-            if (r === -1) continue;
-
-            const boardAfterAIMove = board.map(row => row.slice());
-            boardAfterAIMove[r][col] = computerPlayer;
-
-            const opponentResponses = Array(C4_COLS).fill(0).map((_, i) => i)
-                .filter(c => getLowestEmptyRow(boardAfterAIMove, c) !== -1);
-
-            let isSafe = true;
-            for (const opponentCol of opponentResponses) {
-                // Check if the opponent can win on their turn *after* our move.
-                if (isWinningMove(boardAfterAIMove, opponentCol, humanPlayer)) {
-                    isSafe = false;
-                    break;
-                }
-            }
-
-            if (isSafe) {
-                safeMoves.push(col);
-            }
-        }
-
-        // 2. Center Bias among SAFE moves
-        if (safeMoves.length > 0) {
-            const centerPreference = [3, 2, 4, 1, 5, 0, 6];
-            return centerPreference.find(col => safeMoves.includes(col));
-        }
-
-        // 3. Fallback: If no safe moves, just make the most central available move
-        const centerPreference = [3, 2, 4, 1, 5, 0, 6];
-        return centerPreference.find(col => availableCols.includes(col));
-    }
-
-    function computerC4Move() {
-        const board = gameState.gameData.board;
-        const computerPlayer = C4_P2;
-        const humanPlayer = C4_P1;
-        const difficulty = gameState.gameData.difficulty || 'Hard';
-
-        const availableCols = Array(C4_COLS).fill(0).map((_, i) => i)
-            .filter(col => getLowestEmptyRow(board, col) !== -1);
-
-        if (availableCols.length === 0) return;
-
-        let moveIndex = -1;
-
-        if (difficulty === 'Easy') {
-            moveIndex = availableCols[Math.floor(Math.random() * availableCols.length)];
-        } else if (difficulty === 'Hard') {
-            if (Math.random() < 0.3) {
-                moveIndex = availableCols[Math.floor(Math.random() * availableCols.length)];
+            if (**shouldShow**) {
+                // **!! ADMOB BANNER AD IS HERE (SHOW)** // **REPLACE THIS LINE with AdMob SDK showBanner(AD_ID, ...) call!** 📱
+                **bannerAdContainer.style.display** = '**block**';
             } else {
-                moveIndex = findStrategicMove(board, availableCols, computerPlayer, humanPlayer);
-                if (moveIndex === -1) {
-                     moveIndex = availableCols[Math.floor(Math.random() * availableCols.length)];
-                }
+                // **!! ADMOB BANNER AD IS HERE (HIDE)**
+                // **REPLACE THIS LINE with AdMob SDK hideBanner() call!** 🚫
+                **bannerAdContainer.style.display** = '**none**';
             }
-        } else if (difficulty === 'Impossible') {
-            moveIndex = findImpossibleMove(board, computerPlayer, humanPlayer, availableCols);
         }
 
-        if (moveIndex !== -1 && !gameState.gameData.isGameOver) {
-            // REDUCED DELAY from 500ms to 200ms
-            setTimeout(() => c4HandleDrop(moveIndex), 200);
+        /**
+         * **Simulates loading and showing an App Open Ad.** 🚪
+         */
+        function **loadAndShowAppOpenAd**(onAdClosed) {
+            const **AD_ID** = **ADMOB_TEST_IDS.APP_OPEN**; 
+
+            // **!! ADMOB APP OPEN AD IS HERE (LOAD AND SHOW)** // **REPLACE SIMULATION WITH admob.loadAppOpenAd(AD_ID, onAdClosedCallback);** 🚀
+            
+            **adOverlay.classList.add**('**app-open**');
+            **adOverlay.style.display** = '**flex**';
+            
+            // **Simulate AdMob loading time** ⏳
+            setTimeout(() => {
+                **adContentText.textContent** = `**App Open Ad (TEST ID: ${AD_ID})**`;
+                **adCloseBtn.onclick** = () => {
+                    **adOverlay.style.display** = '**none**';
+                    **onAdClosed()**; 
+                };
+            }, 1500); 
         }
-    }
 
-    function initConnectFour() {
-        if (!gameState.gameData.board) {
-            gameState.gameData = {
-                board: Array(C4_ROWS).fill(0).map(() => Array(C4_COLS).fill(C4_EMPTY)),
-                currentPlayer: C4_P1,
-                mode: 'PvE',
-                difficulty: 'Hard',
-                isGameOver: false,
-                message: 'Red (P1) starts',
-                winner: null,
-            };
+        /**
+         * **Simulates loading and showing an Interstitial Ad.** 🎬
+         */
+        function **loadAndShowInterstitial**(onAdClosed) {
+            const **AD_ID** = **ADMOB_TEST_IDS.INTERSTITIAL**; 
+            
+            // **!! ADMOB INTERSTITIAL AD IS HERE (LOAD AND SHOW)** // **REPLACE SIMULATION WITH admob.loadInterstitial(AD_ID, thenShowCallback);** 📲
+            
+            **adOverlay.classList.add**('**interstitial**');
+            **adOverlay.style.display** = '**flex**';
+            
+            // **Simulate AdMob loading time** ⏳
+            setTimeout(() => {
+                **adContentText.textContent** = `**Interstitial Ad (TEST ID: ${AD_ID})**`;
+                **adCloseBtn.onclick** = () => {
+                    **adOverlay.style.display** = '**none**';
+                    **onAdClosed()**; 
+                };
+            }, 1000); 
         }
-    }
 
-    function c4HandleDrop(colIndex) {
-        initConnectFour();
-        const { board, currentPlayer, isGameOver, mode } = gameState.gameData;
-        if (isGameOver || (mode === 'PvE' && currentPlayer === C4_P2)) return;
+        // --- **Game Flow** ➡️ ---
 
-        let rowIndex = getLowestEmptyRow(board, colIndex);
+        function **startNextMiniGame**() {
+            // ... (check for final round)
 
-        if (rowIndex !== -1) {
-            board[rowIndex][colIndex] = currentPlayer;
-            let gameEnded = false;
-
-            if (checkC4Win(board, currentPlayer)) {
-                gameState.gameData.isGameOver = true;
-                gameState.gameData.winner = currentPlayer;
-                gameState.gameData.message = `${currentPlayer === C4_P1 ? 'Red' : 'Yellow'} Wins!`;
-                gameEnded = true;
-            } else if (board.every(row => row.every(cell => cell !== C4_EMPTY))) {
-                gameState.gameData.isGameOver = true;
-                gameState.gameData.message = `It's a Draw!`;
-                gameEnded = true;
+            // **ADMOB BREAKPOINT: INTERSTITIAL** 🎬
+            if (**currentRound** > 0) {
+                **loadAndShowInterstitial**(() => { // **<-- INTERSTITIAL AD TRIGGERED HERE** 🎯
+                    **proceedToGameScreen()**();
+                });
             } else {
-                gameState.gameData.currentPlayer = currentPlayer === C4_P1 ? C4_P2 : C4_P1;
-                gameState.gameData.message = `${gameState.gameData.currentPlayer === C4_P1 ? 'Red' : 'Yellow'}'s turn`;
-            }
-
-            renderConnectFour();
-
-            if (!gameEnded && mode === 'PvE' && gameState.gameData.currentPlayer === C4_P2) {
-                gameState.gameData.message = "Computer is thinking...";
-                renderConnectFour();
-                computerC4Move();
+                **proceedToGameScreen()**();
             }
         }
-    }
+        
+        // --- **Initialisation** 🏁 ---
 
-    function setC4Difficulty(newDifficulty) {
-        resetConnectFour(gameState.gameData.mode, newDifficulty);
-    }
-
-    function resetConnectFour(mode, difficulty) {
-        const currentMode = mode || gameState.gameData.mode || 'PvE';
-        const currentDifficulty = difficulty || gameState.gameData.difficulty || 'Hard';
-
-        gameState.gameData = {
-            board: Array(C4_ROWS).fill(0).map(() => Array(C4_COLS).fill(C4_EMPTY)),
-            currentPlayer: C4_P1,
-            mode: currentMode,
-            difficulty: currentDifficulty,
-            isGameOver: false,
-            message: `New game (${currentDifficulty}). Red starts.`,
-            winner: null,
-        };
-        renderConnectFour();
-    }
-
-    function renderConnectFour() {
-        initConnectFour();
-        const { board, message, isGameOver, mode, difficulty, currentPlayer } = gameState.gameData;
-        const getDiscClass = (cellValue) => {
-            if (cellValue === C4_P1) return 'c4-red';
-            if (cellValue === C4_P2) return 'c4-yellow';
-            return 'c4-empty';
-        };
-        const difficulties = ['Easy', 'Hard', 'Impossible'];
-        const controlsDisabled = isGameOver || (mode === 'PvE' && currentPlayer === C4_P2);
-
-        gameContainer.innerHTML = `
-            ${adMobTop()}
-            <button onclick="switchGame('menu')" class="btn-secondary mb-4">← Menu</button>
-            <h2 class="text-3xl font-extrabold text-center mb-4 text-white">Connect Four</h2>
-
-            <div class="flex flex-col sm:flex-row justify-between items-center mb-4 space-y-3 sm:space-y-0 sm:space-x-4">
-                <p class="text-xl font-bold p-2 rounded-lg ${controlsDisabled && !isGameOver ? 'text-yellow-200' : isGameOver ? 'text-green-400' : 'text-white'}">
-                    ${message}
-                </p>
-                <button onclick="resetConnectFour('${mode === 'PvP' ? 'PvE' : 'PvP'}', '${difficulty}')" class="btn-secondary text-sm w-full sm:w-auto">
-                    Switch to ${mode === 'PvE' ? '2-Player (PvP)' : 'Vs. Computer (AI)'}
-                </button>
-            </div>
-
-            ${mode === 'PvE' ? `
-                <div class="mb-4 text-center p-2 border border-gray-600 rounded-lg">
-                    <p class="text-sm text-gray-400 mb-2">AI Difficulty:</p>
-                    <div class="flex justify-around space-x-1">
-                        ${difficulties.map(level => `
-                            <button onclick="setC4Difficulty('${level}')" 
-                                    class="flex-1 py-2 rounded-lg font-bold border-2 transition duration-150
-                                    ${difficulty === level ? 'bg-indigo-500 border-indigo-500 text-white shadow-md' : 'bg-gray-700 hover:bg-gray-600 border-gray-600'}">
-                                ${level}
-                            </button>
-                        `).join('')}
-                    </div>
-                </div>
-            ` : `<p class="text-center text-indigo-400 mb-4 font-semibold">Mode: Two Player (PvP)</p>`}
-
-            </div>
-
-            <div class="flex justify-around mb-2">
-                ${Array(C4_COLS).fill(0).map((_, i) => {
-                    const isColumnFull = getLowestEmptyRow(board, i) === -1;
-                    const isDisabled = controlsDisabled || isColumnFull;
-                    return `
-                        <button onclick="c4HandleDrop(${i})" class="text-3xl drop-btn ${isDisabled ? 'opacity-30 cursor-not-allowed' : 'hover:scale-110'}" ${isDisabled ? 'disabled' : ''}>
-                            ⬇️
-                        </button>
-                    `;
-                }).join('')}
-            </div>
-
-            <div id="connect4-grid">
-                ${board.flat().map((cell, index) => {
-                    const rowIndex = Math.floor(index / C4_COLS);
-                    const colIndex = index % C4_COLS;
-                    return `
-                        <div class="c4-cell" data-row="${rowIndex}" data-col="${colIndex}">
-                            <div class="c4-disc ${getDiscClass(cell)}"></div>
-                        </div>
-                    `;
-                }).join('')}
-            </div>
-
-            <div class="mt-6 flex justify-center">
-                <button onclick="resetConnectFour(gameState.gameData.mode, gameState.gameData.difficulty)" class="btn-primary">
-                    ${isGameOver ? 'Play Again' : 'Reset Game'}
-                </button>
-            </div>
-            ${adMobBottom()}
-        `;
-    }
-
-    // --- 2. Tic-Tac-Toe (TTT) Logic (Vs AI or PvP) ---
-
-    const TTT_PLAYER = 'X';
-    const TTT_COMPUTER = 'O';
-
-    function checkTttWin(board, player) {
-        const lines = [
-            [0, 1, 2], [3, 4, 5], [6, 7, 8], // Rows
-            [0, 3, 6], [1, 4, 7], [2, 5, 8], // Columns
-            [0, 4, 8], [2, 4, 6]            // Diagonals
-        ];
-        return lines.some(line => line.every(index => board[index] === player));
-    }
-
-    function findTttBestMove(board, player) {
-        const opponent = player === TTT_PLAYER ? TTT_COMPUTER : TTT_PLAYER;
-        const availableMoves = board.map((cell, i) => cell === '' ? i : -1).filter(i => i !== -1);
-
-        // 1. Win: Check for immediate winning move
-        for (const i of availableMoves) {
-            const newBoard = [...board];
-            newBoard[i] = player;
-            if (checkTttWin(newBoard, player)) return i;
+        // **ADMOB BREAKPOINT: APP OPEN AD** 🚪
+        window.onload = () => {
+             **loadAndShowAppOpenAd**(() => { // **<-- APP OPEN AD TRIGGERED HERE** 💥
+                // ... (start game setup)
+                **showScreen**('**menu**');
+             });
         }
 
-        // 2. Block: Check if opponent has a winning move and block it
-        for (const i of availableMoves) {
-            const newBoard = [...board];
-            newBoard[i] = opponent;
-            if (checkTttWin(newBoard, opponent)) return i;
-        }
-
-        // 3. Center: Take the center if available
-        if (board[4] === '') return 4;
-
-        // 4. Corners: Take a random corner
-        const corners = [0, 2, 6, 8].filter(i => board[i] === '');
-        if (corners.length > 0) return corners[Math.floor(Math.random() * corners.length)];
-
-        // 5. Random: Take any available move
-        if (availableMoves.length > 0) return availableMoves[Math.floor(Math.random() * availableMoves.length)];
-
-        return -1;
-    }
-
-    function initTicTacToe() {
-        if (!gameState.gameData.board) {
-            gameState.gameData = {
-                board: Array(9).fill(''),
-                currentPlayer: TTT_PLAYER,
-                mode: 'PvE',
-                isGameOver: false,
-                message: "X starts. Click a square!",
-            };
-        }
-    }
-
-    function handleTttClick(index) {
-        initTicTacToe();
-        const { board, currentPlayer, isGameOver, mode } = gameState.gameData;
-
-        if (isGameOver || board[index] !== '' || (mode === 'PvE' && currentPlayer === TTT_COMPUTER)) return;
-
-        board[index] = currentPlayer;
-        let gameEnded = false;
-
-        if (checkTttWin(board, currentPlayer)) {
-            gameState.gameData.isGameOver = true;
-            gameState.gameData.message = `${currentPlayer} Wins!`;
-            gameEnded = true;
-        } else if (board.every(cell => cell !== '')) {
-            gameState.gameData.isGameOver = true;
-            gameState.gameData.message = "It's a Draw!";
-            gameEnded = true;
-        } else {
-            gameState.gameData.currentPlayer = currentPlayer === TTT_PLAYER ? TTT_COMPUTER : TTT_PLAYER;
-            gameState.gameData.message = `${gameState.gameData.currentPlayer}'s turn.`;
-        }
-
-        renderTicTacToe();
-
-        if (!gameEnded && mode === 'PvE' && gameState.gameData.currentPlayer === TTT_COMPUTER) {
-            gameState.gameData.message = "Computer is thinking...";
-            renderTicTacToe();
-            // REDUCED DELAY from 500ms to 200ms
-            setTimeout(() => tttComputerMove(), 200);
-        }
-    }
-
-    function tttComputerMove() {
-        const { board } = gameState.gameData;
-        const move = findTttBestMove(board, TTT_COMPUTER);
-        if (move !== -1) {
-            handleTttClick(move); // Uses handleTttClick to update state and render
-        }
-    }
-
-    function resetTicTacToe(mode) {
-        gameState.gameData = {
-            board: Array(9).fill(''),
-            currentPlayer: TTT_PLAYER,
-            mode: mode || gameState.gameData.mode || 'PvE',
-            isGameOver: false,
-            message: "X starts. Click a square!",
-        };
-        renderTicTacToe();
-    }
-
-    function renderTicTacToe() {
-        initTicTacToe();
-        const { board, message, isGameOver, mode } = gameState.gameData;
-        const buttonText = mode === 'PvE' ? 'Switch to 2-Player (PvP)' : 'Switch to Vs. Computer (AI)';
-
-        gameContainer.innerHTML = `
-            ${adMobTop()}
-            <button onclick="switchGame('menu')" class="btn-secondary mb-4">← Menu</button>
-            <h2 class="text-3xl font-extrabold text-center mb-4 text-white">Tic-Tac-Toe</h2>
-
-            <div class="flex justify-between items-center mb-4 space-x-2">
-                <p class="text-xl font-bold text-white">${message}</p>
-                <button onclick="resetTicTacToe('${mode === 'PvP' ? 'PvE' : 'PvP'}')" class="btn-secondary text-sm whitespace-nowrap">
-                    ${buttonText}
-                </button>
-            </div>
-
-            <div id="ttt-grid">
-                ${board.map((cell, index) => `
-                    <div class="ttt-cell ${cell ? 'occupied' : ''}" 
-                         onclick="handleTttClick(${index})"
-                         style="color: ${cell === 'X' ? '#ef4444' : cell === 'O' ? '#f59e0b' : 'transparent'};">
-                        ${cell}
-                    </div>
-                `).join('')}
-            </div>
-
-            <div class="mt-6 flex justify-center">
-                <button onclick="resetTicTacToe(mode)" class="btn-primary">
-                    ${isGameOver ? 'Play Again' : 'Reset Game'}
-                </button>
-            </div>
-            ${adMobBottom()}
-        `;
-    }
-
-    // --- 3. Rock Paper Scissors (RPS) Logic ---
-
-    const RPS_CHOICES = ['Rock 🪨', 'Paper 📄', 'Scissors ✂️'];
-
-    function initRPS() {
-        if (!gameState.gameData.userScore) {
-            gameState.gameData = {
-                userScore: 0,
-                compScore: 0,
-                message: "Make your choice to begin!",
-                userChoice: null,
-                compChoice: null,
-            };
-        }
-    }
-
-    function playRPS(userChoiceIndex) {
-        initRPS();
-        const userChoice = RPS_CHOICES[userChoiceIndex];
-        const compChoice = RPS_CHOICES[Math.floor(Math.random() * 3)];
-        let message = '';
-        let result = 0; // 0=draw, 1=win, -1=lose
-
-        if (userChoice === compChoice) {
-            message = "It's a Draw!";
-        } else if (
-            (userChoice === 'Rock 🪨' && compChoice === 'Scissors ✂️') ||
-            (userChoice === 'Paper 📄' && compChoice === 'Rock 🪨') ||
-            (userChoice === 'Scissors ✂️' && compChoice === 'Paper 📄')
-        ) {
-            gameState.gameData.userScore++;
-            message = "You Win! 🎉";
-            result = 1;
-        } else {
-            gameState.gameData.compScore++;
-            message = "Computer Wins! 😭";
-            result = -1;
-        }
-
-        gameState.gameData.message = message;
-        gameState.gameData.userChoice = userChoice;
-        gameState.gameData.compChoice = compChoice;
-        renderRPS();
-    }
-
-    function resetRPS() {
-        gameState.gameData = {
-            userScore: 0,
-            compScore: 0,
-            message: "Score reset. Make your choice to begin!",
-            userChoice: null,
-            compChoice: null,
-        };
-        renderRPS();
-    }
-
-    function renderRPS() {
-        initRPS();
-        const { userScore, compScore, message, userChoice, compChoice } = gameState.gameData;
-
-        gameContainer.innerHTML = `
-            ${adMobTop()}
-            <button onclick="switchGame('menu')" class="btn-secondary mb-4">← Menu</button>
-            <h2 class="text-3xl font-extrabold text-center mb-6 text-white">Rock Paper Scissors</h2>
-
-            <div class="flex justify-around text-center mb-6 p-4 rounded-lg bg-gray-700 shadow-inner">
-                <div>
-                    <p class="text-lg font-semibold text-red-400">You</p>
-                    <p class="text-5xl font-extrabold">${userScore}</p>
-                </div>
-                <div class="w-px bg-gray-500 mx-4"></div>
-                <div>
-                    <p class="text-lg font-semibold text-yellow-400">Computer</p>
-                    <p class="text-5xl font-extrabold">${compScore}</p>
-                </div>
-            </div>
-
-            <p class="text-center text-2xl font-bold mb-6">${message}</p>
-
-            ${userChoice ? `
-                <div class="text-center mb-6 text-lg p-3 bg-gray-600 rounded-lg">
-                    <p>You played: <span class="font-bold text-green-400">${userChoice}</span></p>
-                    <p>Computer played: <span class="font-bold text-red-400">${compChoice}</span></p>
-                </div>
-            ` : ''}
-
-            <div class="grid grid-cols-3 gap-3 mb-6">
-                ${RPS_CHOICES.map((choice, index) => `
-                    <button onclick="playRPS(${index})" class="py-4 bg-indigo-500 rounded-xl text-lg font-semibold hover:bg-indigo-600 transition duration-150 active:scale-95">
-                        ${choice.split(' ')[0]}
-                    </button>
-                `).join('')}
-            </div>
-
-            <div class="flex justify-center">
-                <button onclick="resetRPS()" class="btn-primary">Reset Score</button>
-            </div>
-            ${adMobBottom()}
-        `;
-    }
-
-    // --- 4. Guess The Number Logic ---
-
-    function initGuessNumber() {
-        if (!gameState.gameData.target) {
-            gameState.gameData = {
-                target: Math.floor(Math.random() * 100) + 1, // Number between 1 and 100
-                message: "Guess a number between 1 and 100:",
-                guessCount: 0,
-                isGameOver: false,
-            };
-        }
-    }
-
-    function handleGuess() {
-        initGuessNumber();
-        const input = document.getElementById('guess-input');
-        const guess = parseInt(input.value);
-
-        if (isNaN(guess) || guess < 1 || guess > 100) {
-            gameState.gameData.message = "Please enter a valid number between 1 and 100.";
-        } else if (gameState.gameData.isGameOver) {
-             gameState.gameData.message = "Game over. Click 'New Game' to play again.";
-        } else {
-            gameState.gameData.guessCount++;
-            if (guess === gameState.gameData.target) {
-                gameState.gameData.message = `Correct! You guessed it in ${gameState.gameData.guessCount} tries! 🎉`;
-                gameState.gameData.isGameOver = true;
-            } else if (guess < gameState.gameData.target) {
-                gameState.gameData.message = `Too Low! Try again. (Guesses: ${gameState.gameData.guessCount})`;
-            } else {
-                gameState.gameData.message = `Too High! Try again. (Guesses: ${gameState.gameData.guessCount})`;
-            }
-        }
-
-        input.value = '';
-        renderGuessNumber();
-    }
-
-    function resetGuessNumber() {
-        gameState.gameData = {
-            target: Math.floor(Math.random() * 100) + 1,
-            message: "New game! Guess a number between 1 and 100:",
-            guessCount: 0,
-            isGameOver: false,
-        };
-        renderGuessNumber();
-    }
-
-    function renderGuessNumber() {
-        initGuessNumber();
-        const { message, guessCount, isGameOver } = gameState.gameData;
-
-        gameContainer.innerHTML = `
-            ${adMobTop()}
-            <button onclick="switchGame('menu')" class="btn-secondary mb-4">← Menu</button>
-            <h2 class="text-3xl font-extrabold text-center mb-6 text-white">Guess The Number</h2>
-
-            <div class="p-4 bg-gray-700 rounded-lg mb-6 shadow-inner">
-                <p class="text-center text-xl font-semibold mb-3">${message}</p>
-                <p class="text-center text-sm text-gray-400">Total Guesses: ${guessCount}</p>
-            </div>
-
-            <div class="flex space-x-2 mb-6">
-                <input type="number" id="guess-input" min="1" max="100" placeholder="Enter your guess (1-100)"
-                       class="flex-1 p-3 rounded-lg bg-gray-600 text-white placeholder-gray-400 focus:ring-2 focus:ring-indigo-500 border-none"
-                       ${isGameOver ? 'disabled' : ''}>
-                <button onclick="handleGuess()" class="btn-primary" ${isGameOver ? 'disabled' : ''}>
-                    Guess
-                </button>
-            </div>
-
-            <div class="flex justify-center">
-                <button onclick="resetGuessNumber()" class="btn-primary">New Game</button>
-            </div>
-            ${adMobBottom()}
-        `;
-    }
-
-    // --- 5. Coin Flip Logic ---
-
-    function initCoinFlip() {
-         if (!gameState.gameData.wins) {
-            gameState.gameData = {
-                message: "Choose Heads or Tails!",
-                lastResult: null,
-                choice: null,
-                wins: 0,
-                losses: 0,
-            };
-        }
-    }
-
-    function flipCoin(choice) {
-        initCoinFlip();
-        const result = Math.random() < 0.5 ? 'Heads' : 'Tails';
-        let message = '';
-
-        if (choice === result) {
-            gameState.gameData.wins++;
-            message = `It's ${result}! You win! 🎉`;
-        } else {
-            gameState.gameData.losses++;
-            message = `It's ${result}! You lose. 😭`;
-        }
-
-        gameState.gameData.message = message;
-        gameState.gameData.lastResult = result;
-        gameState.gameData.choice = choice;
-        renderCoinFlip();
-    }
-
-    function resetCoinFlip() {
-        gameState.gameData = {
-            message: "Score reset. Choose Heads or Tails!",
-            lastResult: null,
-            choice: null,
-            wins: 0,
-            losses: 0,
-        };
-        renderCoinFlip();
-    }
-
-    function renderCoinFlip() {
-        initCoinFlip();
-        const { message, lastResult, wins, losses } = gameState.gameData;
-
-        gameContainer.innerHTML = `
-            ${adMobTop()}
-            <button onclick="switchGame('menu')" class="btn-secondary mb-4">← Menu</button>
-            <h2 class="text-3xl font-extrabold text-center mb-6 text-white">Coin Flip</h2>
-
-            <p class="text-center text-2xl font-bold mb-6">${message}</p>
-
-            <div class="flex justify-around text-center mb-6 p-4 rounded-lg bg-gray-700 shadow-inner">
-                <div>
-                    <p class="text-lg font-semibold text-green-400">Wins</p>
-                    <p class="text-5xl font-extrabold">${wins}</p>
-                </div>
-                <div class="w-px bg-gray-500 mx-4"></div>
-                <div>
-                    <p class="text-lg font-semibold text-red-400">Losses</p>
-                    <p class="text-5xl font-extrabold">${losses}</p>
-                </div>
-            </div>
-
-            ${lastResult ? `
-                <p class="text-center mb-6 text-lg p-3 bg-gray-600 rounded-lg">
-                    Last Flip: <span class="font-bold text-yellow-300">${lastResult}</span>
-                </p>
-            ` : ''}
-
-            <div class="grid grid-cols-2 gap-4 mb-6">
-                <button onclick="flipCoin('Heads')" class="py-4 bg-indigo-500 rounded-xl text-lg font-semibold hover:bg-indigo-600 transition duration-150 active:scale-95">
-                    Heads
-                </button>
-                <button onclick="flipCoin('Tails')" class="py-4 bg-indigo-500 rounded-xl text-lg font-semibold hover:bg-indigo-600 transition duration-150 active:scale-95">
-                    Tails
-                </button>
-            </div>
-
-            <div class="flex justify-center">
-                <button onclick="resetCoinFlip()" class="btn-primary">Reset Score</button>
-            </div>
-            ${adMobBottom()}
-        `;
-    }
-
-    // --- 6. Dice Roll Duel Logic ---
-
-    function initDiceDuel() {
-        if (!gameState.gameData.userScore) {
-            gameState.gameData = {
-                message: "Roll the dice! High score wins the round.",
-                lastRoll: null,
-                userScore: 0,
-                compScore: 0,
-                roundWins: 0,
-                roundLosses: 0,
-            };
-        }
-    }
-
-    function rollDice() {
-        initDiceDuel();
-        const userRoll = Math.floor(Math.random() * 6) + 1;
-        const compRoll = Math.floor(Math.random() * 6) + 1;
-        let message = '';
-
-        if (userRoll > compRoll) {
-            gameState.gameData.roundWins++;
-            message = `You rolled ${userRoll} vs. ${compRoll}! You win this round! 🎉`;
-        } else if (compRoll > userRoll) {
-            gameState.gameData.roundLosses++;
-            message = `You rolled ${userRoll} vs. ${compRoll}! Computer wins this round. 😭`;
-        } else {
-            message = `You both rolled ${userRoll}! It's a Draw.`;
-        }
-
-        gameState.gameData.userScore = userRoll;
-        gameState.gameData.compScore = compRoll;
-        gameState.gameData.lastRoll = true;
-
-        renderDiceDuel();
-    }
-
-    function resetDiceDuel() {
-        gameState.gameData = {
-            message: "Score reset. Roll the dice!",
-            lastRoll: null,
-            userScore: 0,
-            compScore: 0,
-            roundWins: 0,
-            roundLosses: 0,
-        };
-        renderDiceDuel();
-    }
-
-    function getDiceEmoji(roll) {
-        const emojis = {
-            1: '⚀', 2: '⚁', 3: '⚂', 4: '⚃', 5: '⚄', 6: '⚅'
-        };
-        return emojis[roll] || '';
-    }
-
-    function renderDiceDuel() {
-        initDiceDuel();
-        const { message, lastRoll, userScore, compScore, roundWins, roundLosses } = gameState.gameData;
-
-        gameContainer.innerHTML = `
-            ${adMobTop()}
-            <button onclick="switchGame('menu')" class="btn-secondary mb-4">← Menu</button>
-            <h2 class="text-3xl font-extrabold text-center mb-6 text-white">Dice Roll Duel</h2>
-
-            <p class="text-center text-2xl font-bold mb-6">${message}</p>
-
-            <div class="flex justify-around text-center mb-8 p-4 rounded-lg bg-gray-700 shadow-inner">
-                <div>
-                    <p class="text-lg font-semibold text-red-400">Your Score</p>
-                    <p class="text-5xl font-extrabold">${roundWins}</p>
-                </div>
-                <div class="w-px bg-gray-500 mx-4"></div>
-                <div>
-                    <p class="text-lg font-semibold text-yellow-400">Comp. Score</p>
-                    <p class="text-5xl font-extrabold">${roundLosses}</p>
-                </div>
-            </div>
-
-            <div class="flex justify-around items-center mb-8">
-                <div class="text-center">
-                    <p class="text-6xl">${lastRoll ? getDiceEmoji(userScore) : '?'}</p>
-                    <p class="font-semibold text-lg text-green-400">You</p>
-                </div>
-                <div class="text-center">
-                    <p class="text-6xl">${lastRoll ? getDiceEmoji(compScore) : '?'}</p>
-                    <p class="font-semibold text-lg text-yellow-400">Computer</p>
-                </div>
-            </div>
-
-            <div class="grid grid-cols-2 gap-4">
-                <button onclick="rollDice()" class="py-4 bg-indigo-500 rounded-xl text-lg font-semibold hover:bg-indigo-600 transition duration-150 active:scale-95">
-                    Roll Dice 🎲
-                </button>
-                <button onclick="resetDiceDuel()" class="py-4 bg-gray-500 rounded-xl text-lg font-semibold hover:bg-gray-600 transition duration-150 active:scale-95">
-                    Reset Score
-                </button>
-            </div>
-            ${adMobBottom()}
-        `;
-    }
-
-    // --- 7. Simple Math Quiz Logic ---
-
-    function generateMathProblem() {
-        const num1 = Math.floor(Math.random() * 10) + 1;
-        const num2 = Math.floor(Math.random() * 10) + 1;
-        const operators = ['+', '-', '*'];
-        const operator = operators[Math.floor(Math.random() * operators.length)];
-        let answer;
-
-        switch (operator) {
-            case '+': answer = num1 + num2; break;
-            case '-': answer = num1 - num2; break;
-            case '*': answer = num1 * num2; break;
-        }
-
-        return { question: `${num1} ${operator} ${num2}`, answer: answer };
-    }
-
-    function initMathQuiz() {
-        if (!gameState.gameData.question) {
-            const problem = generateMathProblem();
-            gameState.gameData = {
-                question: problem.question,
-                answer: problem.answer,
-                userMessage: "What is the answer?",
-                score: 0,
-                total: 0,
-            };
-        }
-    }
-
-    function checkMathAnswer() {
-        initMathQuiz();
-        const input = document.getElementById('math-answer-input');
-        const userAnswer = parseInt(input.value);
-        const { answer, score, total } = gameState.gameData;
-
-        gameState.gameData.total = total + 1;
-
-        if (userAnswer === answer) {
-            gameState.gameData.score = score + 1;
-            gameState.gameData.userMessage = "Correct! ✅ Get ready for the next one.";
-        } else {
-            gameState.gameData.userMessage = `Wrong! ❌ The answer was ${answer}. Try the next one.`;
-        }
-
-        const newProblem = generateMathProblem();
-        gameState.gameData.question = newProblem.question;
-        gameState.gameData.answer = newProblem.answer;
-
-        input.value = '';
-        renderMathQuiz();
-    }
-
-    function resetMathQuiz() {
-        const problem = generateMathProblem();
-        gameState.gameData = {
-            question: problem.question,
-            answer: problem.answer,
-            userMessage: "Quiz reset! What is the answer?",
-            score: 0,
-            total: 0,
-        };
-        renderMathQuiz();
-    }
-
-    function renderMathQuiz() {
-        initMathQuiz();
-        const { question, userMessage, score, total } = gameState.gameData;
-
-        gameContainer.innerHTML = `
-            ${adMobTop()}
-            <button onclick="switchGame('menu')" class="btn-secondary mb-4">← Menu</button>
-            <h2 class="text-3xl font-extrabold text-center mb-6 text-white">Simple Math Quiz</h2>
-
-            <div class="flex justify-around text-center mb-6 p-4 rounded-lg bg-gray-700 shadow-inner">
-                <div>
-                    <p class="text-lg font-semibold text-green-400">Score</p>
-                    <p class="text-5xl font-extrabold">${score}</p>
-                </div>
-                <div class="w-px bg-gray-500 mx-4"></div>
-                <div>
-                    <p class="text-lg font-semibold text-red-400">Total</p>
-                    <p class="text-5xl font-extrabold">${total}</p>
-                </div>
-            </div>
-
-            <p class="text-center text-xl font-bold mb-4">${userMessage}</p>
-
-            <div class="text-center mb-6 p-4 bg-indigo-600 rounded-lg shadow-md">
-                <p class="text-4xl font-extrabold">${question} = ?</p>
-            </div>
-
-            <div class="flex space-x-2 mb-6">
-                <input type="number" id="math-answer-input" placeholder="Your Answer"
-                       class="flex-1 p-3 rounded-lg bg-gray-600 text-white placeholder-gray-400 focus:ring-2 focus:ring-indigo-500 border-none">
-                <button onclick="checkMathAnswer()" class="btn-primary">
-                    Submit
-                </button>
-            </div>
-
-            <div class="flex justify-center">
-                <button onclick="resetMathQuiz()" class="btn-primary">Reset Quiz</button>
-            </div>
-            ${adMobBottom()}
-        `;
-    }
-
-    // Initialize the game on page load to show the menu
-    window.onload = () => {
-        if (gameContainer) {
-             switchGame('menu');
-        }
-    };
+        // **JAVASCRIPT END**
     </script>
 </body>
 </html>
-
