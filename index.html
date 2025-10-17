@@ -1,0 +1,1562 @@
+Import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { initializeApp } from 'firebase/app';
+import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged, createUserWithEmailAndPassword, signInWithEmailAndPassword, updateProfile, signOut } from 'firebase/auth';
+import { getFirestore, doc, setDoc, onSnapshot, collection, query, limit, orderBy, runTransaction, getDoc, addDoc, updateDoc, deleteDoc, serverTimestamp } from 'firebase/firestore';
+import { Home, NotebookText, BarChart3, Loader2, BookOpenText, Calculator, Users, Clock, ArrowLeft, User, Mail, Lock, LogIn, UserPlus, LogOut, PlusCircle, Trash2, Save, Edit, FileText, CheckCircle, Clock4, TrendingUp } from 'lucide-react';
+
+// --- Global Variables (Provided by Canvas Environment) ---
+const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-see-app';
+const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : null;
+const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+
+// --- UTILITY FUNCTIONS ---
+
+/**
+ * Simple, safe Markdown to HTML conversion for basic text formatting.
+ * This is a minimal implementation focusing on bold and line breaks.
+ * @param {string} markdownText 
+ * @returns {string} HTML string
+ */
+const markdownToHtml = (markdownText) => {
+    if (!markdownText) return '';
+
+    let html = markdownText;
+
+    // 1. Handle bold text: **text** -> <strong>text</strong>
+    html = html.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+
+    // 2. Handle italic text: *text* -> <em>$1</em>
+    html = html.replace(/\*(.*?)\*/g, '<em>$1</em>');
+    
+    // 3. Convert double newlines to paragraphs, and single newlines to <br> 
+    html = html.replace(/\n\n/g, '<p class="mt-2 mb-2"></p>');
+    html = html.replace(/\n/g, '<br/>');
+
+    // Wrap in a div to ensure block rendering
+    return `<div class="markdown-content">${html}</div>`;
+};
+
+/**
+ * Utility to display LaTeX/Math syntax clearly using a monospace font.
+ * @param {string} text 
+ * @returns {string} React element
+ */
+const renderMath = (text) => {
+    if (!text) return text;
+    // Simple regex to find content between $ signs
+    const parts = text.split(/(\$[^\$]+\$)/g).filter(Boolean);
+
+    return parts.map((part, index) => {
+        if (part.startsWith('$') && part.endsWith('$')) {
+            // Render math content in a distinct monospace style
+            const mathContent = part.substring(1, part.length - 1);
+            return (
+                <span key={index} className="font-mono text-blue-800 bg-blue-50 px-1 py-0.5 rounded text-sm select-all">
+                    {mathContent}
+                </span>
+            );
+        }
+        return part;
+    });
+};
+
+// Custom Alert/Modal (since window.alert is forbidden)
+const alertModal = (title, message) => {
+    console.log(`[ALERT] ${title}: ${message}`);
+    
+    const modalDiv = document.createElement('div');
+    modalDiv.className = "fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4";
+    modalDiv.innerHTML = `
+        <div class="bg-white p-6 rounded-xl shadow-2xl max-w-sm w-full space-y-4">
+            <h3 class="text-xl font-bold text-gray-800">${title}</h3>
+            <p class="text-gray-600">${message}</p>
+            <button id="closeAlert" class="w-full py-2 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700">OK</button>
+        </div>
+    `;
+    document.body.appendChild(modalDiv);
+
+    document.getElementById('closeAlert').onclick = () => {
+        document.body.removeChild(modalDiv);
+    };
+};
+
+// --- EMBEDDED QUIZ DATA (From SEE Syllabus) ---
+// (Keeping only the rich data examples and fallbacks for file size)
+
+const ACCOUNTANCY_QUIZ = [
+    { id: 101, q: "Which primary document initiates the process of fund release in the Government Accounting System of Nepal?", options: ["Adesh Pustika (Order Book)", "Budget Sheet", "Voucher", "Nepal Rastriya Bank Statement"], answer: "Adesh Pustika (Order Book)" },
+    { id: 102, q: "The main objective of the **New Government Accounting System (NGAS)** implemented in Nepal is:", options: ["To maximize profit generation for the government.", "To ensure uniform accounting procedures and internal control.", "To prepare an accurate Balance Sheet.", "To calculate Value Added Tax (VAT) collection."], answer: "To ensure uniform accounting procedures and internal control." },
+    // ... more accountancy questions
+];
+
+const POPULATION_QUIZ = [
+    { id: 201, q: "Which component is NOT typically considered a dimension of **Quality of Life**?", options: ["Economic Status", "Social-Cultural Environment", "Political Conflict", "Physical Health"], answer: "Political Conflict" },
+    { id: 202, q: "The study of human population size, composition, distribution, and changes is called:", options: ["Ecology", "Sociology", "Demography", "Geography"], answer: "Demography" },
+    // ... more population questions
+];
+
+const SCIENCE_QUIZ = [
+    { id: 301, q: "Which of the following is an example of a scalar quantity?", options: ["Force", "Velocity", "Displacement", "Distance"], answer: "Distance" },
+    { id: 302, q: "What is the primary function of the **chloroplasts** in a plant cell?", options: ["Respiration", "Protein synthesis", "Photosynthesis", "Energy storage"], answer: "Photosynthesis" },
+    // ... more science questions
+];
+
+// Fallback Data for Quizzes (Used for all other subjects)
+const FALLBACK_QUIZ_QUESTIONS = [
+    { id: 1, q: "Placeholder: What is the primary objective of Government Accounting?", options: ["Profit Maximization", "Compliance with Rules and Regulations", "Shareholder Reporting", "Inventory Valuation"], answer: "Compliance with Rules and Regulations" },
+];
+
+// Subject Mapping for Icons and Names
+const SUBJECTS = [
+    { id: 'maths', name: 'Mathematics', icon: Calculator, provided: true, quizData: FALLBACK_QUIZ_QUESTIONS },
+    { id: 'science', name: 'Science', icon: BookOpenText, provided: true, quizData: SCIENCE_QUIZ }, 
+    { id: 'social', name: 'Social Studies', icon: Users, provided: true, quizData: FALLBACK_QUIZ_QUESTIONS },
+    { id: 'english', name: 'English', icon: NotebookText, provided: true, quizData: FALLBACK_QUIZ_QUESTIONS },
+    { id: 'nepali', name: 'Nepali', icon: NotebookText, provided: true, quizData: FALLBACK_QUIZ_QUESTIONS },
+    { id: 'opt_maths', name: 'Optional Maths', icon: Calculator, provided: true, quizData: FALLBACK_QUIZ_QUESTIONS },
+    { id: 'computer', name: 'Computer', icon: Clock, provided: true, quizData: FALLBACK_QUIZ_QUESTIONS },
+    { id: 'population', name: 'Population Studies', icon: Users, provided: true, quizData: POPULATION_QUIZ },
+    { id: 'account', name: 'Accountancy', icon: BarChart3, provided: true, quizData: ACCOUNTANCY_QUIZ },
+];
+
+
+// --- PAST PAPER DATA STRUCTURES ---
+const PAPER_REFERENCE_LIST = [
+    { id: 's2080', subject: 'Compulsory Science', year: '2080', set: 'Set A (Bagmati)' },
+    { id: 'm2080', subject: 'Compulsory Mathematics', year: '2080', set: 'Set A (Koshi)' },
+    { id: 'e2079', subject: 'Compulsory English', year: '2079', set: 'Set B (Madhesh)' },
+];
+
+const PAST_PAPERS_DATA = {
+    's2080': { // Science 2080: Mix of MCQ and Short/Long Answer
+        title: 'Compulsory Science - 2080 (Set A - BP)',
+        subjectId: 'science',
+        time: '2 hours 15 minutes',
+        fullMarks: 75,
+        instructions: "Answer all questions. The figures in the margin indicate full marks.",
+        groups: [
+            { id: 'group_a', name: 'Group A (Multiple Choice Questions)', marks: '15 x 1 = 15', type: 'mcq', questions: [
+                { id: 'sa1', q: "The chemical formula for 'Blue Vitriol' is:", options: ["FeSO₄", "CuSO₄·5H₂O", "NaCl", "CaCO₃"], answer: "CuSO₄·5H₂O" },
+                { id: 'sa2', q: "Which part of the eye controls the amount of light entering it?", options: ["Retina", "Iris", "Lens", "Cornea"], answer: "Iris" },
+                { id: 'sa3', q: "The instrument used to measure the intensity of an earthquake is:", options: ["Barometer", "Seismograph", "Hydrometer", "Lactometer"], answer: "Seismograph" },
+                { id: 'sa4', q: "What is the SI unit of power?", options: ["Joule", "Watt", "Volt", "Ampere"], answer: "Watt" },
+            ]},
+            { id: 'group_b', name: 'Group B (Very Short Questions)', marks: '5 x 2 = 10', type: 'short_answer', questions: [
+                { id: 'sb1', q: "Define acceleration and state its SI unit. (2)", answer: "" },
+                { id: 'sb2', q: "Why is the use of iodized salt recommended? (2)", answer: "" },
+            ]},
+            { id: 'group_c', name: 'Group C (Long Questions)', marks: '4 x 5 = 20', type: 'long_answer', questions: [
+                { id: 'sc1', q: "Describe the process of photosynthesis with a balanced chemical equation and list the two conditions necessary for it to occur. (5)", answer: "" },
+            ]},
+        ]
+    },
+    'm2080': { // Maths 2080: Structured Problems with Sub-parts
+        title: 'Compulsory Mathematics - 2080 (Set A - KoP)',
+        subjectId: 'maths',
+        time: '3 hours',
+        fullMarks: 100,
+        instructions: "Attempt all the questions. Mathematical expressions are written in LaTeX style for clarity.",
+        groups: [
+            { id: 'group_a', name: 'Group A (Short Answer Questions)', marks: '10 x 1 = 10', type: 'short_answer', questions: [
+                { id: 'ma1', q: "Write down the formula for the compound amount, given the principal ($P$), rate ($R$), and time ($T$).", answer: "" },
+                { id: 'ma2', q: "If the area of a circle is $154 \text{ cm}^2$, find its radius.", answer: "" },
+                { id: 'ma3', q: "What is the median class of the data set: $10, 20, 30, 40, 50$?", answer: "" },
+            ]},
+            { id: 'group_b', name: 'Group B (Structured Questions)', marks: '10 x 4 = 40', type: 'structured_problem', questions: [
+                { id: 'mb1', q: "A TV was bought for Rs 15,000. It was marked up by $20\%$ and a $13\%$ VAT was added to the marked price. Find:", subQuestions: [
+                    { id: 'mb1a', q: "The marked price of the TV. (2)", answer: "" },
+                    { id: 'mb1b', q: "The total amount paid for the TV. (2)", answer: "" }
+                ]},
+                { id: 'mb2', q: "The given Venn diagram shows a survey result. If $n(U) = 100$, find:", subQuestions: [
+                    { id: 'mb2a', q: "The value of $x$. (2)", answer: "" },
+                    { id: 'mb2b', q: "The number of elements in $A \cap B$. (2)", answer: "" }
+                ]},
+            ]}
+        ]
+    },
+    'e2079': { // English 2079: Long Answer/Essay Questions
+        title: 'Compulsory English - 2079 (Set B - MP)',
+        subjectId: 'english',
+        time: '3 hours',
+        fullMarks: 100,
+        instructions: "Attempt all the questions.",
+        groups: [
+            { id: 'group_a', name: 'Group A (Reading Comprehension & Grammar)', marks: '20', type: 'long_answer', questions: [
+                { id: 'ea1', q: "Write a summary of a 200-word passage (imagine the text is provided) about 'The Importance of Renewable Energy'. (5)", answer: "" },
+                { id: 'ea2', q: "Change the following sentence into passive voice: 'She writes a beautiful poem.' (1)", answer: "" }
+            ]},
+            { id: 'group_b', name: 'Group B (Writing)', marks: '2 x 8 = 16', type: 'long_answer', questions: [
+                { id: 'eb1', q: "Write a formal letter to the editor of a national newspaper expressing your views on the problem of plastic waste in your community and suggesting two solutions. (8)", answer: "" },
+                { id: 'eb2', q: "Develop a short story (approx. 250 words) beginning with the sentence: 'The old lighthouse keeper knew something was coming, but he didn't know what.' (8)", answer: "" }
+            ]}
+        ]
+    }
+};
+
+// Component for the Main Quiz (Unchanged logic, now uses embedded data)
+const QuizView = ({ userId, userDisplayName, db, subject, quizQuestions, setView }) => {
+    // ... (QuizView content remains the same)
+    const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
+    const [selectedAnswer, setSelectedAnswer] = useState(null);
+    const [score, setScore] = useState(0);
+    const [isQuizFinished, setIsQuizFinished] = useState(false);
+    const [quizResult, setQuizResult] = useState(null);
+    const [isSaving, setIsSaving] = useState(false);
+
+    if (!quizQuestions || quizQuestions.length === 0) {
+        return (
+            <div className="p-8 text-center text-gray-500">
+                <Loader2 className="w-8 h-8 mx-auto animate-spin text-blue-500 mb-3" />
+                No questions available for this subject yet.
+            </div>
+        );
+    }
+    
+    const question = quizQuestions[currentQuestionIndex];
+
+
+    const handleAnswerSelection = (option) => {
+        if (!selectedAnswer) {
+            setSelectedAnswer(option);
+            if (option === question.answer) {
+                setScore(s => s + 1);
+            }
+        }
+    };
+
+    const handleNextQuestion = () => {
+        setSelectedAnswer(null);
+        if (currentQuestionIndex < quizQuestions.length - 1) {
+            setCurrentQuestionIndex(currentQuestionIndex + 1);
+        } else {
+            setIsQuizFinished(true);
+            const finalScore = score + (selectedAnswer === question.answer ? 1 : 0);
+            setQuizResult({ score: finalScore, total: quizQuestions.length });
+        }
+    };
+
+    const saveWeeklyTestScore = useCallback(async (finalScore, currentDisplayName) => {
+        if (!db || !userId) return;
+        setIsSaving(true);
+        const userScoreRef = doc(db, `artifacts/${appId}/public/data/leaderboard`, userId);
+
+        try {
+            await runTransaction(db, async (transaction) => {
+                const docSnap = await transaction.get(userScoreRef);
+
+                let currentHighestScore = 0;
+                if (docSnap.exists()) {
+                    currentHighestScore = docSnap.data().highestScore || 0;
+                }
+
+                if (finalScore > currentHighestScore) {
+                    transaction.set(userScoreRef, {
+                        userId: userId,
+                        displayName: currentDisplayName,
+                        highestScore: finalScore,
+                        lastTestDate: new Date().toISOString(),
+                        subject: subject.name,
+                    }, { merge: true });
+                }
+            });
+            console.log("Weekly Test score saved successfully.");
+        } catch (error) {
+            console.error("Error saving score:", error);
+        } finally {
+            setIsSaving(false);
+        }
+    }, [db, userId, subject.name]);
+
+    useEffect(() => {
+        // Only run score saving if it's the Accountancy quiz (Weekly Test) and the quiz is finished
+        if (isQuizFinished && quizResult && subject.id === 'account') {
+            saveWeeklyTestScore(quizResult.score, userDisplayName);
+        }
+    }, [isQuizFinished, quizResult, subject.id, saveWeeklyTestScore, userDisplayName]);
+
+    if (!quizQuestions || quizQuestions.length === 0) return null;
+
+
+    return (
+        <div className="p-4 sm:p-8 space-y-6">
+            <h2 className="text-2xl font-bold text-gray-800 border-b pb-2 mb-4 flex items-center">
+                <ArrowLeft className="w-5 h-5 mr-3 cursor-pointer text-blue-600 hover:text-blue-800" onClick={() => setView('subjects')} />
+                {subject.name} - Mock Quiz
+            </h2>
+
+            {isQuizFinished ? (
+                <div className="bg-white p-6 rounded-xl shadow-lg text-center">
+                    <h3 className="text-3xl font-extrabold text-blue-600 mb-4">Quiz Finished!</h3>
+                    <p className="text-xl font-semibold text-gray-700">
+                        Your Score: <span className="text-4xl text-green-500">{quizResult.score}</span> / {quizResult.total}
+                    </p>
+                    {subject.id === 'account' && (
+                        <div className="mt-4">
+                            <p className="text-sm text-gray-500">{isSaving ? 'Saving score to leaderboard...' : 'Score submission complete.'}</p>
+                            <button
+                                onClick={() => setView('leaderboard')}
+                                className="mt-4 px-6 py-2 bg-purple-600 text-white font-semibold rounded-lg shadow-md hover:bg-purple-700 transition duration-150"
+                            >
+                                View Leaderboard
+                            </button>
+                        </div>
+                    )}
+                    <button
+                        onClick={() => setView('subjects')}
+                        className="mt-6 ml-4 px-6 py-2 border border-gray-300 text-gray-700 font-semibold rounded-lg hover:bg-gray-100 transition duration-150"
+                    >
+                        Back to Subjects
+                    </button>
+                </div>
+            ) : (
+                <div className="bg-white p-6 rounded-xl shadow-lg space-y-6">
+                    <div className="text-sm text-blue-600 font-medium">
+                        Question {currentQuestionIndex + 1} of {quizQuestions.length}
+                    </div>
+                    <div className="text-xl font-semibold text-gray-900">
+                        {question.q}
+                    </div>
+
+                    <div className="space-y-3">
+                        {question.options.map((option, index) => {
+                            const isCorrect = selectedAnswer && option === question.answer;
+                            const isSelected = selectedAnswer && option === selectedAnswer;
+
+                            let bgColor = 'bg-gray-50 hover:bg-gray-100';
+                            if (isSelected) {
+                                bgColor = isCorrect ? 'bg-green-100 border-green-500' : 'bg-red-100 border-red-500';
+                            } else if (selectedAnswer && option === question.answer) {
+                                bgColor = 'bg-green-100 border-green-500';
+                            }
+
+                            return (
+                                <button
+                                    key={index}
+                                    onClick={() => handleAnswerSelection(option)}
+                                    disabled={!!selectedAnswer}
+                                    className={`w-full text-left p-3 border rounded-lg transition duration-150 ${bgColor} ${isSelected && !isCorrect ? 'ring-2 ring-red-500' : ''}`}
+                                >
+                                    {option}
+                                    {selectedAnswer && (
+                                        <span className="float-right ml-2 font-bold">
+                                            {isCorrect ? '✓' : isSelected ? '✕' : ''}
+                                        </span>
+                                    )}
+                                </button>
+                            );
+                        })}
+                    </div>
+
+                    <button
+                        onClick={handleNextQuestion}
+                        disabled={!selectedAnswer}
+                        className={`w-full py-3 font-semibold rounded-lg transition duration-150 ${selectedAnswer ? 'bg-blue-600 text-white hover:bg-blue-700 shadow-md' : 'bg-gray-300 text-gray-500 cursor-not-allowed'}`}
+                    >
+                        {currentQuestionIndex < quizQuestions.length - 1 ? 'Next Question' : 'Finish Quiz'}
+                    </button>
+                </div>
+            )}
+        </div>
+    );
+};
+
+// Component for displaying Study Notes (Unchanged)
+const NotesView = ({ subject, setView, db, userId, allUserNotes }) => {
+    // ... (NotesView content remains the same)
+    const [isAdding, setIsAdding] = useState(false);
+    const [noteTitle, setNoteTitle] = useState('');
+    const [noteContent, setNoteContent] = useState('');
+    const [loading, setLoading] = useState(false);
+    const [editingNoteId, setEditingNoteId] = useState(null);
+    const [tempEditTitle, setTempEditTitle] = useState('');
+    const [tempEditContent, setTempEditContent] = useState('');
+
+    // Filter notes specific to the current subject
+    const subjectNotes = useMemo(() => {
+        return Object.values(allUserNotes)
+            .filter(note => note.subjectId === subject.id)
+            .sort((a, b) => new Date(b.createdAt?.seconds * 1000 || 0) - new Date(a.createdAt?.seconds * 1000 || 0));
+    }, [allUserNotes, subject.id]);
+
+    const handleSaveNote = async (e) => {
+        e.preventDefault();
+        if (!noteTitle.trim() || !noteContent.trim() || !db || !userId) {
+            alertModal("Validation Error", "Please provide both a title and content for your note.");
+            return;
+        }
+
+        setLoading(true);
+        try {
+            const newNote = {
+                subjectId: subject.id,
+                title: noteTitle.trim(),
+                content: noteContent.trim(),
+                createdAt: serverTimestamp(),
+            };
+            
+            const notesCollectionRef = collection(db, `artifacts/${appId}/users/${userId}/notes`);
+            await addDoc(notesCollectionRef, newNote);
+
+            setNoteTitle('');
+            setNoteContent('');
+            setIsAdding(false);
+        } catch (error) {
+            console.error("Error saving note:", error);
+            alertModal("Save Failed", "Could not save your note. Please try again.");
+        } finally {
+            setLoading(false);
+        }
+    };
+    
+    const handleDeleteNote = async (noteId) => {
+        if (!confirm('Are you sure you want to delete this note?')) return;
+        
+        setLoading(true);
+        try {
+            const noteRef = doc(db, `artifacts/${appId}/users/${userId}/notes`, noteId);
+            await deleteDoc(noteRef);
+        } catch (error) {
+            console.error("Error deleting note:", error);
+            alertModal("Delete Failed", "Could not delete the note. Please try again.");
+        } finally {
+            setLoading(false);
+        }
+    };
+    
+    const handleStartEdit = (note) => {
+        setEditingNoteId(note.id);
+        setTempEditTitle(note.title);
+        setTempEditContent(note.content);
+        setIsAdding(false); // Close add form if open
+    };
+    
+    const handleSaveEdit = async () => {
+        if (!tempEditTitle.trim() || !tempEditContent.trim() || !db || !userId || !editingNoteId) {
+            alertModal("Validation Error", "Please provide both a title and content for your note.");
+            return;
+        }
+        
+        setLoading(true);
+        try {
+            const noteRef = doc(db, `artifacts/${appId}/users/${userId}/notes`, editingNoteId);
+            await updateDoc(noteRef, {
+                title: tempEditTitle.trim(),
+                content: tempEditContent.trim(),
+                updatedAt: serverTimestamp(),
+            });
+            setEditingNoteId(null); // Exit edit mode
+        } catch (error) {
+            console.error("Error updating note:", error);
+            alertModal("Update Failed", "Could not update the note. Please try again.");
+        } finally {
+            setLoading(false);
+        }
+    };
+    
+    const confirm = (message) => {
+        // Simple shim for confirm() using alertModal, instructing user via console
+        console.warn("Using console/UI hack for confirmation: " + message);
+        return window.prompt(message + " Type 'yes' to confirm.") === 'yes';
+    };
+
+
+    return (
+        <div className="p-4 sm:p-8 space-y-6">
+            <h2 className="text-2xl font-bold text-gray-800 border-b pb-2 mb-4 flex items-center">
+                <ArrowLeft className="w-5 h-5 mr-3 cursor-pointer text-blue-600 hover:text-blue-800" onClick={() => setView('subjects')} />
+                {subject.name} - My Study Notes
+            </h2>
+            <div className="text-sm text-gray-500 mb-4">
+                Create and save your own personalized notes for this subject. Use **Markdown** (like **bold text**) for better formatting.
+            </div>
+
+            <button
+                onClick={() => { setIsAdding(prev => !prev); setEditingNoteId(null); }}
+                className="w-full py-3 flex items-center justify-center bg-blue-600 text-white font-semibold rounded-lg shadow-md hover:bg-blue-700 transition duration-150 disabled:bg-gray-400"
+                disabled={loading}
+            >
+                <PlusCircle className="w-5 h-5 mr-2" />
+                {isAdding ? 'Close Note Creator' : 'Create New Note'}
+            </button>
+
+            {/* Note Creation Form */}
+            {isAdding && (
+                <div className="bg-white p-5 rounded-xl shadow-lg border-t-4 border-blue-500 space-y-4">
+                    <h3 className="text-xl font-bold text-gray-800">Add New Note</h3>
+                    <form onSubmit={handleSaveNote} className="space-y-3">
+                        <input
+                            type="text"
+                            placeholder="Note Title (e.g., Law of Inertia)"
+                            value={noteTitle}
+                            onChange={(e) => setNoteTitle(e.target.value)}
+                            className="w-full p-3 border rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                            disabled={loading}
+                        />
+                        <textarea
+                            placeholder="Note Content (Use **bold** and new lines for formatting)"
+                            rows="5"
+                            value={noteContent}
+                            onChange={(e) => setNoteContent(e.target.value)}
+                            className="w-full p-3 border rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                            disabled={loading}
+                        />
+                        <div className="flex justify-end space-x-2">
+                            <button
+                                type="button"
+                                onClick={() => setIsAdding(false)}
+                                className="px-4 py-2 bg-gray-300 text-gray-800 font-semibold rounded-lg hover:bg-gray-400 transition duration-150"
+                                disabled={loading}
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                type="submit"
+                                className="px-4 py-2 flex items-center bg-green-600 text-white font-semibold rounded-lg hover:bg-green-700 transition duration-150 disabled:bg-green-400"
+                                disabled={loading}
+                            >
+                                <Save className="w-5 h-5 mr-2" />
+                                {loading ? 'Saving...' : 'Save Note'}
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            )}
+            
+            {/* List of Saved Notes */}
+            <h3 className="text-xl font-bold text-gray-800 mt-6">Saved Notes ({subjectNotes.length})</h3>
+            <div className="space-y-4">
+                {subjectNotes.length === 0 ? (
+                    <div className="bg-yellow-50 p-4 rounded-xl text-center text-gray-500">
+                        No notes saved for {subject.name} yet. Use the "Create New Note" button to start!
+                    </div>
+                ) : (
+                    subjectNotes.map((note) => (
+                        <div key={note.id} className="bg-white p-5 rounded-xl shadow-md border-l-4 border-green-500 relative">
+                            {editingNoteId === note.id ? (
+                                <div className='space-y-3'>
+                                    <h3 className="text-lg font-semibold text-gray-800">Editing Note</h3>
+                                    <input
+                                        type="text"
+                                        value={tempEditTitle}
+                                        onChange={(e) => setTempEditTitle(e.target.value)}
+                                        className="w-full p-2 border rounded-lg font-bold text-lg focus:ring-blue-500 focus:border-blue-500"
+                                        disabled={loading}
+                                    />
+                                    <textarea
+                                        rows="5"
+                                        value={tempEditContent}
+                                        onChange={(e) => setTempEditContent(e.target.value)}
+                                        className="w-full p-2 border rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                                        disabled={loading}
+                                    />
+                                    <div className="flex justify-end space-x-2">
+                                        <button
+                                            onClick={() => setEditingNoteId(null)}
+                                            className="px-4 py-2 bg-gray-300 text-gray-800 font-semibold rounded-lg hover:bg-gray-400 transition duration-150"
+                                            disabled={loading}
+                                        >
+                                            Cancel
+                                        </button>
+                                        <button
+                                            onClick={handleSaveEdit}
+                                            className="px-4 py-2 flex items-center bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition duration-150 disabled:bg-blue-400"
+                                            disabled={loading}
+                                        >
+                                            <Save className="w-5 h-5 mr-2" />
+                                            {loading ? 'Updating...' : 'Save Changes'}
+                                        </button>
+                                    </div>
+                                </div>
+                            ) : (
+                                <>
+                                    <div className="flex justify-between items-start mb-2">
+                                        <h3 className="text-xl font-semibold text-gray-800">{note.title}</h3>
+                                        <div className="flex space-x-2">
+                                            <button 
+                                                onClick={() => handleStartEdit(note)} 
+                                                className="text-blue-500 hover:text-blue-700 p-1 rounded-full bg-gray-100 transition duration-150"
+                                                disabled={loading}
+                                            >
+                                                <Edit className="w-4 h-4" />
+                                            </button>
+                                            <button 
+                                                onClick={() => handleDeleteNote(note.id)} 
+                                                className="text-red-500 hover:text-red-700 p-1 rounded-full bg-gray-100 transition duration-150"
+                                                disabled={loading}
+                                            >
+                                                <Trash2 className="w-4 h-4" />
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <div 
+                                        className="text-gray-700 leading-relaxed" 
+                                        dangerouslySetInnerHTML={{ __html: markdownToHtml(note.content) }} 
+                                    />
+                                    <p className='text-xs text-gray-400 mt-2 text-right'>
+                                        Created: {note.createdAt ? new Date(note.createdAt.seconds * 1000).toLocaleDateString() : 'Saving...'}
+                                    </p>
+                                </>
+                            )}
+                        </div>
+                    ))
+                )}
+            </div>
+        </div>
+    );
+};
+
+// Component for the Leaderboard (Unchanged)
+const LeaderboardView = ({ leaderboard, setView }) => {
+    // ... (LeaderboardView content remains the same)
+    return (
+        <div className="p-4 sm:p-8 space-y-6">
+            <h2 className="text-3xl font-bold text-gray-900 mb-6">
+                <BarChart3 className="inline-block w-7 h-7 mr-2 text-yellow-600" />
+                Weekly Test Leaderboard
+            </h2>
+            <div className="bg-yellow-50 border-l-4 border-yellow-500 text-yellow-800 p-4 rounded-lg mb-6">
+                Scores reset weekly. Rank is based on the highest score from the 'Accountancy' Mock Quiz.
+            </div>
+
+            <div className="overflow-x-auto bg-white rounded-xl shadow-lg">
+                <table className="min-w-full divide-y divide-gray-200">
+                    <thead className="bg-gray-50">
+                        <tr>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Rank</th>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">User / Display Name</th>
+                            <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Highest Score</th>
+                        </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
+                        {leaderboard.map((entry, index) => (
+                            <tr key={entry.userId} className={`${index === 0 ? 'bg-yellow-50 font-bold' : ''}`}>
+                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                    {index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : `#${index + 1}`}
+                                </td>
+                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                    {entry.displayName || (entry.userId ? `${entry.userId.substring(0, 8)}...` : 'N/A')}
+                                </td>
+                                <td className="px-6 py-4 whitespace-nowrap text-right text-base font-semibold text-green-600">{entry.highestScore}</td>
+                            </tr>
+                        ))}
+                        {leaderboard.length === 0 && (
+                            <tr>
+                                <td colSpan="3" className="px-6 py-4 text-center text-sm text-gray-500">No scores recorded yet. Be the first!</td>
+                            </tr>
+                        )}
+                    </tbody>
+                </table>
+            </div>
+
+            <button
+                onClick={() => setView('subjects')}
+                className="mt-6 px-6 py-2 bg-blue-600 text-white font-semibold rounded-lg shadow-md hover:bg-blue-700 transition duration-150"
+            >
+                Back to Subjects
+            </button>
+        </div>
+    );
+};
+
+// --- Paper Attempt View (New Core Component) ---
+const PaperAttemptView = ({ paperData, setView }) => {
+    const [answers, setAnswers] = useState({});
+
+    // Simple handler to store all answer inputs (including sub-questions)
+    const handleAnswerChange = (questionId, value) => {
+        setAnswers(prev => ({
+            ...prev,
+            [questionId]: value,
+        }));
+    };
+
+    const renderQuestionInput = (question, parentId = null) => {
+        const fullId = parentId ? `${parentId}-${question.id}` : question.id;
+        
+        // Render MCQ buttons for practice questions (using simpler logic than timed quiz)
+        if (paperData.groups.find(g => g.id === parentId || g.questions.some(q => q.id === question.id))?.type === 'mcq' && question.options) {
+            return (
+                <div className="space-y-2 mt-2">
+                    {question.options.map((option, idx) => (
+                        <button
+                            key={idx}
+                            onClick={() => handleAnswerChange(fullId, option)}
+                            className={`w-full text-left p-3 border rounded-lg transition duration-150 ${
+                                answers[fullId] === option
+                                    ? 'bg-blue-100 border-blue-500 font-semibold'
+                                    : 'bg-gray-50 hover:bg-gray-100 border-gray-200'
+                            }`}
+                        >
+                            {option}
+                        </button>
+                    ))}
+                </div>
+            );
+        }
+
+        // Render standard short/long answer text area
+        const rows = question.q.length > 100 ? 5 : 2; // Auto-size based on prompt length
+        return (
+            <textarea
+                rows={rows}
+                placeholder="Write your answer here..."
+                value={answers[fullId] || ''}
+                onChange={(e) => handleAnswerChange(fullId, e.target.value)}
+                className="w-full p-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 text-sm mt-2"
+            />
+        );
+    };
+
+    return (
+        <div className="p-4 sm:p-8 space-y-6">
+            <h2 className="text-2xl font-bold text-gray-800 border-b pb-2 mb-4 flex items-center">
+                <ArrowLeft className="w-5 h-5 mr-3 cursor-pointer text-blue-600 hover:text-blue-800" onClick={() => setView('past_papers')} />
+                {paperData.title}
+            </h2>
+
+            {/* Exam Metadata */}
+            <div className="bg-blue-50 p-4 rounded-xl shadow-inner flex justify-between text-sm font-medium text-gray-700">
+                <p className="flex items-center"><Clock4 className="w-4 h-4 mr-1 text-blue-600" /> Time: {paperData.time}</p>
+                <p className="flex items-center"><TrendingUp className="w-4 h-4 mr-1 text-blue-600" /> Full Marks: {paperData.fullMarks}</p>
+            </div>
+            
+            <p className="text-xs text-gray-500 italic border-b pb-2">{paperData.instructions}</p>
+
+            {/* Questions by Group */}
+            {paperData.groups.map((group) => (
+                <div key={group.id} className="bg-white p-5 rounded-xl shadow-lg border-t-4 border-blue-500 space-y-4">
+                    <h3 className="text-xl font-bold text-gray-800">{group.name}</h3>
+                    <p className="text-sm text-gray-500 font-medium">Marks: {group.marks}</p>
+
+                    {group.questions.map((question, qIndex) => (
+                        <div key={question.id} className="border-b pb-4 last:border-b-0">
+                            {group.type === 'structured_problem' ? (
+                                // --- Structured Problem Rendering (e.g., Mathematics) ---
+                                <div className='space-y-3'>
+                                    <p className="text-md font-semibold text-gray-900 border-l-4 border-yellow-500 pl-2">
+                                        Q{qIndex + 1}. {renderMath(question.q)}
+                                    </p>
+                                    <div className="ml-4 space-y-3">
+                                        {question.subQuestions.map((sub, sIndex) => (
+                                            <div key={sub.id}>
+                                                <p className="text-sm text-gray-700">
+                                                    ({String.fromCharCode(97 + sIndex)}). {renderMath(sub.q)}
+                                                </p>
+                                                {renderQuestionInput(sub, question.id)}
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            ) : (
+                                // --- Standard Question Rendering (MCQ, Short, Long) ---
+                                <>
+                                    <p className="text-md font-semibold text-gray-900">
+                                        Q{qIndex + 1}. {renderMath(question.q)}
+                                    </p>
+                                    {renderQuestionInput(question)}
+                                </>
+                            )}
+                        </div>
+                    ))}
+                </div>
+            ))}
+
+            <button
+                onClick={() => alertModal("Submission Disabled", "This is a practice viewer. Submission and auto-checking are disabled for long-form answers, but you can review your responses above!")}
+                className="w-full py-3 bg-green-600 text-white font-semibold rounded-lg shadow-md hover:bg-green-700 transition duration-150 flex items-center justify-center"
+            >
+                <CheckCircle className="w-5 h-5 mr-2" />
+                Review My Answers (Practice Mode)
+            </button>
+            <button
+                onClick={() => setView('past_papers')}
+                className="mt-4 w-full py-2 bg-gray-600 text-white font-semibold rounded-lg shadow-md hover:bg-gray-700 transition duration-150"
+            >
+                Back to Paper List
+            </button>
+        </div>
+    );
+};
+
+// --- Past Papers View Component (Updated to handle selection) ---
+const PastPapersView = ({ setView, onSelectPaper }) => {
+    return (
+        <div className="p-4 sm:p-8 space-y-6">
+            <h2 className="text-3xl font-bold text-gray-900 mb-6 flex items-center">
+                <ArrowLeft className="w-5 h-5 mr-3 cursor-pointer text-blue-600 hover:text-blue-800" onClick={() => setView('subjects')} />
+                <FileText className="inline-block w-7 h-7 mr-2 text-yellow-600" />
+                Past SEE Papers
+            </h2>
+            <div className="bg-blue-50 border-l-4 border-blue-500 text-blue-800 p-4 rounded-lg mb-6">
+                Select an examination paper to review the questions and practice writing your answers.
+            </div>
+
+            {/* NEW PROVINCE ACRONYM NOTE */}
+            <div className="bg-yellow-50 border-l-4 border-yellow-500 text-yellow-800 p-4 rounded-xl mb-6 shadow-md">
+                <h3 className="font-bold mb-2 text-gray-800 flex items-center">
+                    <Users className="w-4 h-4 mr-2 text-yellow-600" />
+                    Province Acronyms Reference:
+                </h3>
+                <ul className="list-none space-y-1 ml-2 text-sm">
+                    <li><strong className="text-yellow-900 w-12 inline-block">1. KoP</strong>: Koshi Province</li>
+                    <li><strong className="text-yellow-900 w-12 inline-block">2. MP</strong>: Madhesh Province</li>
+                    <li><strong className="text-yellow-900 w-12 inline-block">3. BP</strong>: Bagmati Province</li>
+                    <li><strong className="text-yellow-900 w-12 inline-block">4. GP</strong>: Gandaki Province</li>
+                    <li><strong className="text-yellow-900 w-12 inline-block">5. LP</strong>: Lumbini Province</li>
+                    <li><strong className="text-yellow-900 w-12 inline-block">6. KP</strong>: Karnali Province</li>
+                    <li><strong className="text-yellow-900 w-12 inline-block">7. SP</strong>: Sudurpashchim Province</li>
+                </ul>
+            </div>
+            {/* END NEW NOTE */}
+
+            <div className="space-y-3">
+                {PAPER_REFERENCE_LIST.map((paper) => (
+                    <button
+                        key={paper.id}
+                        onClick={() => onSelectPaper(paper.id)}
+                        className="w-full flex justify-between items-center p-4 bg-white rounded-xl shadow-md hover:shadow-lg hover:border-blue-400 transition duration-200 border border-gray-200"
+                    >
+                        <div className="text-left">
+                            <h3 className="text-lg font-semibold text-gray-800">{paper.subject}</h3>
+                            <p className="text-sm text-gray-500">Exam Year: {paper.year} | {paper.set}</p>
+                        </div>
+                        <ArrowLeft className="w-5 h-5 text-blue-500 transform rotate-180" />
+                    </button>
+                ))}
+            </div>
+            
+            <button
+                onClick={() => setView('subjects')}
+                className="mt-6 w-full py-2 bg-gray-600 text-white font-semibold rounded-lg shadow-md hover:bg-gray-700 transition duration-150"
+            >
+                Back to Subjects
+            </button>
+        </div>
+    );
+};
+
+
+// --- Authentication Modal Component (Unchanged) ---
+const AuthModal = ({ isOpen, onClose, auth, currentDisplayName, setCurrentDisplayName, onProceedAnonymously }) => {
+    // ... (AuthModal content remains the same)
+    if (!isOpen) return null;
+
+    const [authView, setAuthView] = useState('login'); 
+    const [email, setEmail] = useState('');
+    const [password, setPassword] = useState('');
+    const [name, setName] = useState(currentDisplayName || '');
+    const [error, setError] = useState(null);
+    const [loading, setLoading] = useState(false);
+    
+    const isAnonymous = auth?.currentUser?.isAnonymous;
+    const isLoggedIn = auth?.currentUser && !isAnonymous;
+
+    useEffect(() => {
+        if (isLoggedIn) {
+            setAuthView('profile');
+            setName(auth.currentUser.displayName || '');
+        } else {
+            setAuthView('login');
+        }
+        setEmail('');
+        setPassword('');
+        setError(null);
+    }, [isLoggedIn, auth?.currentUser, isOpen]);
+
+    const handleLogin = async () => {
+        setError(null);
+        setLoading(true);
+        try {
+            await signInWithEmailAndPassword(auth, email, password);
+            onClose(); 
+        } catch (e) {
+            setError(e.message);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleSignup = async () => {
+        setError(null);
+        setLoading(true);
+        try {
+            if (!name.trim()) {
+                throw new Error("Display Name is required for sign up.");
+            }
+            const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+            await updateProfile(userCredential.user, { displayName: name.trim() });
+            setCurrentDisplayName(name.trim());
+            onClose(); 
+        } catch (e) {
+            setError(e.message);
+        } finally {
+            setLoading(false);
+        }
+    };
+    
+    const handleUpdateName = async () => {
+        setError(null);
+        setLoading(true);
+        const user = auth.currentUser;
+        const newName = name.trim();
+        
+        if (!user || !newName || newName === currentDisplayName) {
+            setLoading(false);
+            return;
+        }
+
+        try {
+            await updateProfile(user, { displayName: newName });
+            setCurrentDisplayName(newName);
+            alertModal("Success", `Your display name has been updated to ${newName}!`);
+        } catch (e) {
+            setError(e.message);
+        } finally {
+            setLoading(false);
+        }
+    };
+    
+    const handleLogout = async () => {
+        setError(null);
+        setLoading(true);
+        try {
+            await signOut(auth);
+            await signInAnonymously(auth);
+            onProceedAnonymously();
+            alertModal("Signed Out", "You have been signed out. You are now using an anonymous session.");
+        } catch (e) {
+            setError(e.message);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const LoginForm = () => (
+        <div className="space-y-4">
+            <h3 className="text-2xl font-bold text-blue-600 text-center">Sign In to Continue</h3>
+            <p className="text-center text-sm text-gray-500">Access your saved progress and leaderboard rank.</p>
+            
+            <div className="relative">
+                <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+                <input
+                    type="email"
+                    placeholder="Email Address"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                    disabled={loading}
+                />
+            </div>
+            <div className="relative">
+                <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+                <input
+                    type="password"
+                    placeholder="Password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                    disabled={loading}
+                />
+            </div>
+            
+            {error && <p className="text-red-500 text-sm text-center bg-red-100 p-2 rounded-lg">{error}</p>}
+
+            <button
+                onClick={handleLogin}
+                disabled={loading || !email || !password}
+                className={`w-full py-3 font-semibold rounded-lg transition duration-150 flex items-center justify-center ${loading || !email || !password ? 'bg-gray-300 text-gray-500 cursor-not-allowed' : 'bg-blue-600 text-white hover:bg-blue-700 shadow-md'}`}
+            >
+                <LogIn className="w-5 h-5 mr-2" />
+                {loading ? 'Signing In...' : 'Sign In'}
+            </button>
+        </div>
+    );
+
+    const SignupForm = () => (
+        <div className="space-y-4">
+            <h3 className="text-2xl font-bold text-green-600 text-center">Create Your Account</h3>
+            <p className="text-center text-sm text-gray-500">Sign up to save your scores and join the leaderboard.</p>
+            
+            <div className="relative">
+                <User className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+                <input
+                    type="text"
+                    placeholder="Display Name (for Leaderboard)"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-green-500 focus:border-green-500"
+                    disabled={loading}
+                />
+            </div>
+            <div className="relative">
+                <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+                <input
+                    type="email"
+                    placeholder="Email Address"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-green-500 focus:border-green-500"
+                    disabled={loading}
+                />
+            </div>
+            <div className="relative">
+                <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+                <input
+                    type="password"
+                    placeholder="Password (min 6 characters)"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-green-500 focus:border-green-500"
+                    disabled={loading}
+                />
+            </div>
+            
+            {error && <p className="text-red-500 text-sm text-center bg-red-100 p-2 rounded-lg">{error}</p>}
+
+            <button
+                onClick={handleSignup}
+                disabled={loading || !email || !password || !name.trim()}
+                className={`w-full py-3 font-semibold rounded-lg transition duration-150 flex items-center justify-center ${loading || !email || !password || !name.trim() ? 'bg-gray-300 text-gray-500 cursor-not-allowed' : 'bg-green-600 text-white hover:bg-green-700 shadow-md'}`}
+            >
+                <UserPlus className="w-5 h-5 mr-2" />
+                {loading ? 'Creating Account...' : 'Sign Up'}
+            </button>
+        </div>
+    );
+
+    const ProfileView = () => (
+        <div className="space-y-6">
+            <h3 className="text-2xl font-bold text-gray-800 border-b pb-2 mb-4 text-center">My Profile</h3>
+            <div className="p-4 bg-blue-50 rounded-lg space-y-2">
+                <p className="text-sm font-medium text-gray-600 flex items-center"><Mail className="w-4 h-4 mr-2 text-blue-500"/> Email: <span className="ml-2 font-semibold text-gray-800">{auth.currentUser.email}</span></p>
+                <p className="text-sm font-medium text-gray-600 flex items-center"><Clock className="w-4 h-4 mr-2 text-blue-500"/> User ID: <span className="ml-2 font-mono text-xs text-gray-700 bg-white px-1 rounded">{auth.currentUser.uid}</span></p>
+            </div>
+            
+            <div className="space-y-2">
+                <label htmlFor="displayName" className="block text-sm font-medium text-gray-700">Display Name (for Leaderboard)</label>
+                <div className="relative">
+                    <User className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+                    <input
+                        id="displayName"
+                        type="text"
+                        placeholder="Display Name"
+                        value={name}
+                        onChange={(e) => setName(e.target.value)}
+                        className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                        disabled={loading}
+                    />
+                </div>
+                
+                <button
+                    onClick={handleUpdateName}
+                    disabled={loading || name.trim() === currentDisplayName || !name.trim()}
+                    className={`w-full py-3 font-semibold rounded-lg transition duration-150 ${loading || name.trim() === currentDisplayName || !name.trim() ? 'bg-gray-300 text-gray-500 cursor-not-allowed' : 'bg-green-600 text-white hover:bg-green-700 shadow-md'}`}
+                >
+                    {loading ? 'Updating...' : 'Update Name'}
+                </button>
+            </div>
+
+            <button
+                onClick={handleLogout}
+                className="w-full py-3 mt-4 flex items-center justify-center bg-red-500 text-white font-semibold rounded-lg shadow-md hover:bg-red-600 transition duration-150"
+                disabled={loading}
+            >
+                <LogOut className="w-5 h-5 mr-2" />
+                Sign Out
+            </button>
+            
+        </div>
+    );
+    
+    const renderContent = () => {
+        if (isLoggedIn) return <ProfileView />;
+
+        switch (authView) {
+            case 'login':
+                return <LoginForm />;
+            case 'signup':
+                return <SignupForm />;
+            default:
+                return <LoginForm />;
+        }
+    };
+
+    return (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4" onClick={isLoggedIn ? onClose : (e) => e.stopPropagation()}>
+            <div className="bg-white p-6 rounded-xl shadow-2xl max-w-sm w-full space-y-4 relative" onClick={(e) => e.stopPropagation()}>
+                {isLoggedIn && (
+                    <button onClick={onClose} className="absolute top-3 right-3 text-gray-400 hover:text-gray-600">
+                        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                    </button>
+                )}
+                
+                {!isLoggedIn && (
+                    <div className="flex w-full border-b border-gray-200 -mt-2">
+                        <button
+                            onClick={() => { setAuthView('login'); setError(null); }}
+                            className={`flex-1 py-3 text-center text-sm font-semibold transition duration-150 ${authView === 'login' ? 'border-b-2 border-blue-600 text-blue-600' : 'text-gray-500 hover:text-gray-700'}`}
+                        >
+                            <LogIn className="w-4 h-4 inline-block mr-1"/> Sign In
+                        </button>
+                        <button
+                            onClick={() => { setAuthView('signup'); setError(null); }}
+                            className={`flex-1 py-3 text-center text-sm font-semibold transition duration-150 ${authView === 'signup' ? 'border-b-2 border-green-600 text-green-600' : 'text-gray-500 hover:text-gray-700'}`}
+                        >
+                            <UserPlus className="w-4 h-4 inline-block mr-1"/> Sign Up
+                        </button>
+                    </div>
+                )}
+                
+                <div className='pt-2'>
+                    {renderContent()}
+                </div>
+                
+                {auth?.currentUser?.isAnonymous && (
+                    <div className="pt-4 border-t border-gray-100 space-y-3">
+                        <p className="text-center text-xs text-gray-500">
+                            You are using a temporary session. Sign in or sign up to save your progress permanently.
+                        </p>
+                        <button
+                            onClick={onProceedAnonymously}
+                            className="w-full py-3 flex items-center justify-center border border-gray-300 text-gray-700 font-semibold rounded-lg hover:bg-gray-100 transition duration-150"
+                        >
+                            <ArrowLeft className="w-5 h-5 mr-2 rotate-180"/>
+                            Proceed Anonymously
+                        </button>
+                    </div>
+                )}
+
+            </div>
+        </div>
+    );
+};
+
+
+// Main App Component
+const App = () => {
+    const [db, setDb] = useState(null);
+    const [auth, setAuth] = useState(null);
+    const [userId, setUserId] = useState(null);
+    const [userDisplayName, setUserDisplayName] = useState(null); 
+    const [loading, setLoading] = useState(true);
+    const [authReady, setAuthReady] = useState(false);
+    
+    const [isAuthModalOpen, setIsAuthModalOpen] = useState(true); 
+    const [showMainContent, setShowMainContent] = useState(false); 
+    
+    const [view, setView] = useState('subjects'); 
+    const [selectedSubject, setSelectedSubject] = useState(null);
+    const [leaderboard, setLeaderboard] = useState([]);
+    const [activeQuizContent, setActiveQuizContent] = useState(null); 
+    
+    // State for Past Papers
+    const [activePaperData, setActivePaperData] = useState(null); // <-- New State
+    
+    // State for User-created Notes (Unchanged)
+    const [userNotes, setUserNotes] = useState({}); 
+
+    // 1. Firebase Initialization and Authentication (Unchanged)
+    useEffect(() => {
+        if (!firebaseConfig) {
+            console.error("Firebase config is missing.");
+            setLoading(false);
+            return;
+        }
+
+        try {
+            const app = initializeApp(firebaseConfig);
+            const authInstance = getAuth(app);
+            const dbInstance = getFirestore(app);
+
+            setDb(dbInstance);
+            setAuth(authInstance);
+
+            const unsubscribe = onAuthStateChanged(authInstance, async (user) => {
+                if (user) {
+                    setUserId(user.uid);
+                    setUserDisplayName(user.displayName || user.email || `${user.uid.substring(0, 8)}...`);
+                    
+                    if (!user.isAnonymous) {
+                        setIsAuthModalOpen(false); 
+                        setShowMainContent(true);
+                    } else {
+                        setIsAuthModalOpen(true); 
+                        setShowMainContent(false);
+                    }
+                } else {
+                    await signInAnonymously(authInstance);
+                }
+                setAuthReady(true);
+            });
+
+            if (initialAuthToken) {
+                signInWithCustomToken(authInstance, initialAuthToken).catch(e => {
+                    console.error("Custom token sign-in failed:", e);
+                    signInAnonymously(authInstance);
+                });
+            }
+
+            return () => unsubscribe();
+        } catch (e) {
+            console.error("Firebase initialization failed:", e);
+            setLoading(false);
+        }
+    }, []);
+
+    const handleAnonymousProceed = () => {
+        setShowMainContent(true);
+        setIsAuthModalOpen(false);
+        alertModal("Welcome!", "You are currently proceeding anonymously. Your scores will not be saved to the public leaderboard. Please sign up or log in to save your progress permanently.");
+    };
+
+    // 2. Leaderboard Real-time Listener (Unchanged)
+    useEffect(() => {
+        if (!db || !authReady) return;
+
+        const leaderboardPath = `artifacts/${appId}/public/data/leaderboard`;
+        const q = query(collection(db, leaderboardPath), orderBy("highestScore", "desc"), limit(10));
+
+        const unsubscribe = onSnapshot(q, (snapshot) => {
+            const scores = [];
+            snapshot.forEach((doc) => {
+                scores.push({ ...doc.data(), userId: doc.id });
+            });
+            setLeaderboard(scores);
+        }, (error) => {
+            console.error("Leaderboard snapshot error:", error);
+        });
+
+        return () => unsubscribe();
+
+    }, [db, authReady]);
+    
+    // 3. User Notes Real-time Listener (Unchanged)
+    useEffect(() => {
+        if (!db || !userId) return; 
+
+        const notesPath = `artifacts/${appId}/users/${userId}/notes`;
+        const notesRef = collection(db, notesPath);
+        
+        const unsubscribe = onSnapshot(notesRef, (snapshot) => {
+            const fetchedNotes = {};
+            snapshot.forEach((doc) => {
+                fetchedNotes[doc.id] = { id: doc.id, ...doc.data() };
+            });
+            setUserNotes(fetchedNotes);
+            console.log(`Fetched ${snapshot.size} user notes.`);
+        }, (error) => {
+            console.error("User notes snapshot error:", error);
+        });
+
+        return () => unsubscribe();
+        
+    }, [db, userId]); 
+
+
+    // Set main Loading to false once auth is ready (Unchanged)
+    useEffect(() => {
+        if (authReady) {
+            setLoading(false);
+        }
+    }, [authReady]);
+
+
+    // Helper for navigation
+    const handleSubjectSelect = (subject) => {
+        setSelectedSubject(subject);
+        setView('subject_detail');
+    };
+
+    // New Quiz Start Handler (Unchanged)
+    const handleStartQuiz = (subject) => {
+        if (!showMainContent) {
+            alertModal("Access Denied", "Please sign up, log in, or proceed anonymously first.");
+            return;
+        }
+
+        setSelectedSubject(subject);
+        setActiveQuizContent(subject.quizData);
+        setView('quiz');
+    };
+
+    const handleViewNotes = (subject) => {
+        setSelectedSubject(subject);
+        setView('notes');
+    };
+    
+    // Handler for Past Papers (Unchanged)
+    const handleViewPastPapers = () => {
+        if (!showMainContent) {
+            alertModal("Access Denied", "Please sign up, log in, or proceed anonymously first.");
+            return;
+        }
+        setView('past_papers');
+    };
+    
+    // NEW: Handler for selecting a specific paper
+    const handleSelectPaper = (paperId) => {
+        const data = PAST_PAPERS_DATA[paperId];
+        if (data) {
+            setActivePaperData(data);
+            setView('attempt_paper');
+        } else {
+            alertModal("Error", "Selected paper data not found.");
+        }
+    };
+
+
+    const renderContent = () => {
+        if (loading) {
+            return (
+                <div className="flex justify-center items-center h-full p-12">
+                    <Loader2 className="w-10 h-10 animate-spin text-blue-500" />
+                    <span className="ml-3 text-lg text-gray-600">Loading App Data...</span>
+                </div>
+            );
+        }
+        
+        if (!showMainContent) {
+            return <div className="p-12 text-center text-gray-500">Please sign in or proceed anonymously.</div>;
+        }
+
+
+        switch (view) {
+            case 'subjects':
+                return (
+                    <SubjectGridView onSelectSubject={handleSubjectSelect} userId={userId} userDisplayName={userDisplayName} setView={setView} setIsAuthModalOpen={setIsAuthModalOpen} />
+                );
+            case 'subject_detail':
+                return (
+                    <SubjectDetailView 
+                        subject={selectedSubject} 
+                        setView={setView} 
+                        handleStartQuiz={handleStartQuiz} 
+                        handleViewNotes={handleViewNotes}
+                        handleViewPastPapers={handleViewPastPapers}
+                    />
+                );
+            case 'quiz':
+                return (
+                    <QuizView 
+                        userId={userId} 
+                        userDisplayName={userDisplayName} 
+                        db={db} 
+                        subject={selectedSubject} 
+                        quizQuestions={activeQuizContent} 
+                        setView={setView} 
+                    />
+                );
+            case 'notes':
+                return (
+                    <NotesView 
+                        subject={selectedSubject} 
+                        setView={setView} 
+                        db={db} 
+                        userId={userId} 
+                        allUserNotes={userNotes}
+                    />
+                );
+            case 'leaderboard':
+                return (
+                    <LeaderboardView leaderboard={leaderboard} setView={setView} />
+                );
+            case 'past_papers': 
+                return (
+                    <PastPapersView setView={setView} onSelectPaper={handleSelectPaper} />
+                );
+            case 'attempt_paper': // <-- NEW VIEW RENDERED HERE
+                return (
+                    <PaperAttemptView paperData={activePaperData} setView={setView} />
+                );
+            default:
+                return <h1 className="p-8 text-center text-red-500">View Not Found</h1>;
+        }
+    };
+
+    return (
+        <div className="min-h-screen bg-gray-100 font-sans antialiased flex flex-col items-center">
+            <style>{`
+                @import url('https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap');
+                
+                body {
+                    font-family: 'Inter', sans-serif;
+                }
+            `}</style>
+            
+            <header className="w-full max-w-lg bg-blue-700 text-white shadow-xl p-4 sticky top-0 z-10">
+                <div className="flex justify-between items-center">
+                    <div className="flex items-center">
+                        <div className="bg-white p-1 rounded-full">
+                            <BookOpenText className="w-6 h-6 text-blue-700" />
+                        </div>
+                        <h1 className="ml-3 text-xl font-extrabold tracking-wide">SEE 2082 Prep</h1>
+                    </div>
+                    {showMainContent && (
+                        <button
+                            onClick={() => setIsAuthModalOpen(true)}
+                            className="text-sm bg-blue-800 px-3 py-1 rounded-full flex items-center hover:bg-blue-600 transition duration-150"
+                        >
+                            <User className="w-4 h-4 mr-1" />
+                            {userDisplayName || 'Profile'}
+                        </button>
+                    )}
+                </div>
+            </header>
+
+            <main className="w-full max-w-lg min-h-[calc(100vh-120px)] pb-20">
+                {renderContent()}
+            </main>
+
+            {showMainContent && (
+                <nav className="fixed bottom-0 w-full max-w-lg bg-white shadow-2xl border-t border-gray-200 z-10">
+                    <div className="flex justify-around p-3">
+                        <NavItem icon={Home} label="Subjects" currentView={view} targetView="subjects" setView={() => setView('subjects')} />
+                        <NavItem 
+                            icon={NotebookText} 
+                            label="Weekly Test" 
+                            currentView={view} 
+                            targetView="quiz" 
+                            setView={() => handleStartQuiz(SUBJECTS.find(s => s.id === 'account'))} 
+                        />
+                        <NavItem icon={BarChart3} label="Leaderboard" currentView={view} targetView="leaderboard" setView={() => setView('leaderboard')} />
+                    </div>
+                </nav>
+            )}
+
+            <AuthModal
+                isOpen={isAuthModalOpen}
+                onClose={() => setIsAuthModalOpen(false)} 
+                auth={auth}
+                db={db}
+                currentDisplayName={userDisplayName}
+                setCurrentDisplayName={setUserDisplayName}
+                onProceedAnonymously={handleAnonymousProceed}
+            />
+
+            {authReady && auth?.currentUser?.isAnonymous && showMainContent && (
+                <div className="fixed top-16 right-4 bg-yellow-100 text-yellow-700 text-xs p-2 rounded-lg shadow-md">
+                    Anonymous User: {userId ? `${userId.substring(0, 5)}...` : 'N/A'}
+                </div>
+            )}
+
+            <div className="fixed bottom-16 w-full max-w-lg text-center bg-gray-200 p-1 text-sm text-gray-700 shadow-inner">
+                --- AD BANNER HERE ---
+            </div>
+        </div>
+    );
+};
+
+// Subject Grid View (Unchanged)
+const SubjectGridView = ({ onSelectSubject, userId, userDisplayName, setView, setIsAuthModalOpen }) => (
+    <div className="p-4 sm:p-6">
+        <h2 className="text-xl font-bold text-gray-700 mb-4">Choose a Subject</h2>
+        <div className="grid grid-cols-3 gap-3">
+            {SUBJECTS.map((subject) => (
+                <button
+                    key={subject.id}
+                    onClick={() => onSelectSubject(subject)}
+                    className="flex flex-col items-center justify-center p-4 bg-white rounded-xl shadow-lg hover:shadow-xl transition duration-300 transform hover:scale-[1.02] border border-gray-200"
+                >
+                    <subject.icon className={`w-8 h-8 ${subject.id === 'account' ? 'text-yellow-600' : 'text-blue-600'}`} />
+                    <span className="mt-2 text-sm font-semibold text-center text-gray-800">{subject.name}</span>
+                    <span className="text-xs text-gray-500 mt-1">{subject.quizData.length > 5 ? 'Rich Content' : 'Placeholder Quiz'}</span>
+                </button>
+            ))}
+        </div>
+        <div className="mt-6 p-4 bg-gray-200 rounded-xl shadow-inner">
+            <h3 className="text-lg font-bold text-gray-700 mb-2">My Profile</h3>
+            <p className="text-sm text-gray-600 mb-2">
+                Name: <span className="font-semibold text-gray-800">{userDisplayName}</span>
+            </p>
+            <p className="text-sm text-gray-500 mb-4">
+                ID: <span className="font-mono text-xs bg-white px-1 py-[1px] rounded">{userId}</span>
+            </p>
+            <button
+                onClick={() => setIsAuthModalOpen(true)}
+                className="w-full py-2 mt-2 bg-yellow-600 text-white font-semibold rounded-lg shadow-md hover:bg-yellow-700 transition duration-150 flex items-center justify-center"
+            >
+                <User className="w-4 h-4 mr-2" />
+                Change Name / Login
+            </button>
+            <button
+                onClick={() => setView('leaderboard')}
+                className="w-full py-2 mt-2 bg-purple-600 text-white font-semibold rounded-lg shadow-md hover:bg-purple-700 transition duration-150 flex items-center justify-center"
+            >
+                <BarChart3 className="w-4 h-4 mr-2" />
+                View Leaderboard
+            </button>
+        </div>
+    </div>
+);
+
+// Subject Detail View (Unchanged)
+const SubjectDetailView = ({ subject, setView, handleStartQuiz, handleViewNotes, handleViewPastPapers }) => (
+    <div className="p-4 sm:p-8 space-y-4">
+        <h2 className="text-3xl font-bold text-gray-800 border-b pb-2 mb-4">
+            <ArrowLeft className="w-5 h-5 mr-3 cursor-pointer text-blue-600 hover:text-blue-800 inline-block" onClick={() => setView('subjects')} />
+            {subject.name}
+        </h2>
+        <p className="text-gray-600 mb-6">
+            Explore notes, past papers, and practice quizzes for the {subject.name} subject.
+        </p>
+
+        <ActionCard
+            icon={BookOpenText}
+            title="My Saved Notes"
+            description="Create, view, and manage your personal study notes. Now supports Markdown!"
+            color="bg-green-500"
+            onClick={() => handleViewNotes(subject)}
+        />
+
+        <ActionCard
+            icon={NotebookText}
+            title={subject.id === 'account' ? "Weekly Test" : "Practice Quiz"}
+            description={subject.id === 'account' ? "Test your knowledge with the current Accountancy Weekly Test (Scores are saved)." : "Test your knowledge with mock MCQs."}
+            color="bg-blue-500"
+            onClick={() => handleStartQuiz(subject)}
+        />
+
+        <ActionCard
+            icon={Clock}
+            title="Past SEE Papers"
+            description="Practice time-bound questions from previous years."
+            color="bg-yellow-500"
+            onClick={handleViewPastPapers}
+        />
+    </div>
+);
+
+// Reusable Action Card (Unchanged)
+const ActionCard = ({ icon: Icon, title, description, color, onClick }) => (
+    <button
+        onClick={onClick}
+        className="w-full flex items-center p-4 bg-white rounded-xl shadow-lg hover:shadow-xl transition duration-300 border-l-8 border-transparent"
+        style={{ borderLeftColor: color }}
+    >
+        <div className={`p-3 rounded-full mr-4 text-white`} style={{ backgroundColor: color }}>
+            <Icon className="w-6 h-6" />
+        </div>
+        <div className="text-left">
+            <h3 className="text-lg font-semibold text-gray-800">{title}</h3>
+            <p className="text-sm text-gray-500">{description}</p>
+        </div>
+    </button>
+);
+
+// Reusable Navigation Item (Unchanged)
+const NavItem = ({ icon: Icon, label, currentView, targetView, setView }) => {
+    const isActive = currentView === targetView || (targetView === 'quiz' && currentView === 'quiz') || (targetView === 'subjects' && (currentView === 'subjects' || currentView === 'subject_detail' || currentView === 'notes'));
+    const color = isActive ? 'text-blue-600' : 'text-gray-500';
+
+    return (
+        <button
+            onClick={setView}
+            className={`flex flex-col items-center p-2 rounded-lg transition duration-150 ${color}`}
+        >
+            <Icon className={`w-6 h-6 ${color}`} />
+            <span className="text-xs font-medium">{label}</span>
+        </button>
+    );
+};
+
+export default App;
